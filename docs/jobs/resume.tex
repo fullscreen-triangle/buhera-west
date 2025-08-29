@@ -1,0 +1,254 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% "ModernCV" CV and Cover Letter
+% LaTeX Template
+% Version 1.11 (19/6/14)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% Xavier Danaux (xdanaux@gmail.com)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+% Important note:
+% This template requires the moderncv.cls and .sty files to be in the same 
+% directory as this .tex file. These files provide the resume style and themes 
+% used for structuring the document.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[10pt,a4paper,sans]{moderncv} % Font sizes: 10, 11, or 12; paper sizes: a4paper, letterpaper, a5paper, legalpaper, executivepaper or landscape; font families: sans or roman
+
+\usepackage{german}
+\usepackage[utf8]{inputenc}
+
+\moderncvstyle{classic} % CV theme - options include: 'casual' (default), 'classic', 'oldstyle' and 'banking'
+\moderncvcolor{blue} % CV color - options include: 'blue' (default), 'orange', 'green', 'red', 'purple', 'grey' and 'black'
+
+\usepackage{lipsum} % Used for inserting dummy 'Lorem ipsum' text into the template
+
+\usepackage[scale=0.75]{geometry} % Reduce document margins
+%\setlength{\hintscolumnwidth}{3cm} % Uncomment to change the width of the dates column
+%\setlength{\makecvtitlenamewidth}{10cm} % For the 'classic' style, uncomment to adjust the width of the space allocated to your name
+\usepackage{ragged2e} 
+%----------------------------------------------------------------------------------------
+%	NAME AND CONTACT INFORMATION SECTION
+%----------------------------------------------------------------------------------------
+
+\firstname{Kundai\\}  % Your first name
+\familyname{Sachikonye} % Your last name\\
+
+% All information in this block is optional, comment out any lines you don't need
+%\title{Curriculum Vitae}
+\address{Auf der Lichtung 19}{82178 Puchheim}
+\mobile{(+49) 15140388930}
+\email{kundai.f.sachikonye@gmail.com}
+%\homepage{https://github.com/KSachi} {https://github.com/KSachi} % The first argument is the url for the clickable link, the second argument is the url displayed in the template - this allows special characters to be displayed such as the tilde in this example
+%\extrainfo{additional information}
+\photo[70pt][0.4pt]{pictures/Bew1} % The first bracket is the picture height, the second is the thickness of the frame around the picture (0pt for no frame)
+%\quote{"A witty and playful quotation" - John Smith}
+
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+
+\makecvtitle % Print the CV title
+
+%----------------------------------------------------------------------------------------
+%	EDUCATION SECTION
+%----------------------------------------------------------------------------------------
+
+\section{Education}
+\cventry{19--21}{Computational Lipidomics}{Technische Universität München}{PhD}{x}{}
+\cventry{18--19}{Computational Biology}{Universität Tübingen}{MSc}{x}{}
+\cventry{14--17}{Pharmaceutical Biotechnology}{HAW Hamburg}{MSc}{}{}
+\cventry{11--14}{Biochemistry and Cell Biology}{Jacobs University Bremen}{BSc}{}{}  % Arguments not required can be left empty
+
+%\section{Masters Thesis}
+
+%\cvitem{Title}{\emph{Technologies and characterization of ferroelectric polymers for biomedical sensors}}
+%\cvitem{Supervisors}{Professor Antonino Fiorillo}
+%\cvitem{Description}{This thesis is based on the implementation of a temperature sensor.}
+
+%----------------------------------------------------------------------------------------
+%	WORK EXPERIENCE SECTION
+%----------------------------------------------------------------------------------------
+
+\section{Work Experience}
+
+\cventry{06/21--}{Web Development and Federated Learning}{\textsc{Bitspark GmbH}}{Full Stack }{}{
+Development of an extensible JS platform for aggregation of UI output, user input, communication protocols and sensing events across connected IoT and smart wearable technology. Real time sensor data is aggregated and engineered by serverless functions and stored as personalized, decentralized and distributed clients that share high quality global models.
+}
+
+\cventry{12/19--
+06/21}{Computational Lipidomics}{\textsc{Bayerisches Forschungs Institute}}{Full Stack }{}{
+Developed a web platform for federated learning comprehensive mass spectrometry-based lipidomics using Java for peak finding, PHP for  ion database annotation,python for feature engineering, and tokenization and typescript for front end visualization and statistical routines. 
+}
+
+\cventry{02/19--
+08/19}{Bioprocess Automation}{\textsc{Fraunhofer Institut IGB}}{Full Stack }{}{
+Developed an online real-time process monitoring, data acquisition and processing modules in C and python for industrial plant algea photo-bioreactors. Dynamic and linear programming methods were used in the optimisation, prediction and automation of production of therapeutic lipids.
+}
+
+\cventry{03/17 --
+03/18}{Glycomics}{\textsc{Uniklinikum Eppendorf}}{}{Python}{
+Developed an automated container based high performance analysis tool in python for standardized proteomics and glycomics characterization pipelines for LC-MS/MS and MALDI-TOF data.
+}
+
+\cventry{03/16 --
+09/16}{Drug Development}{\textsc{Anspach AG}}{}{Python, C++}{
+Optimisation of forward extraction reactions to increase liposomal encapsulation efficiency of hydrophilic drugs in PLGA nano-particles.
+}
+
+\cventry{06/13 --
+08/2013}{Pharmacokinetics}{\textsc{Leibniz Lungenzentrum}}{}{Data Analysis}{
+Estimation of matrix suppression effects in the measurement of Anti-TB drug efficacy in  CHO lung cells spiked serum plasma using Selected Reaction Monitoring LC-MS.
+}
+\cventry{06/2013 --
+08/13}{Biomarker Discovery}{\textsc{University Medical Center Groningen}}{}{Data Analysis}{
+Optimisation of a UPLC-MS/MS Shotgun proteomics protocol for cervical cancer biomarker discovery in cell plasma and serum.
+}
+
+\cventry{06/12 --
+08/2012}{Metabolomics}{\textsc{University of Zimbabwe}}{}{Data Analysis}{
+Development and optimisation of a plant metabolite characterisation pipeline through the use of LC and UV-Spectrometry methods.
+}
+%------------------------------------------------
+
+%\section{Attivita' di Formazione Post-Laurea}
+
+%\cventry{Ott 2013 --
+%Ott 2013}{Android Programmer}{\textsc{JDK srl}}{Roma}{}{Corso di programmazione in Android}
+
+%\cventry{Sett 2012 --
+%Luglio 2013}{Ricercatore Industriale}{\textsc{Universita' degli studi Magna Graecia}}{Catanzaro}{}{CORSO DI ALTA FORMAZIONE: Universita' degli Studi Magna Graecia di Catanzaro, Ricercatore Industriale in tecniche avanzate di Neuroimaging multimodale mediante l'uso di risonanza magnetica ad alto campo.  Durata in mesi: 11 mesi.}
+%----------------------------------------------------------------------------------------
+%	AWARDS SECTION
+%----------------------------------------------------------------------------------------
+%\section{Titolo di Merito/Professionali - Riconoscimenti/Accreditamenti}
+
+%\cventry{Ottobre 2012}{Ingegnere Industriale}{\textsc{Arcavacata Campus -- Universita' della Calabria}}{Cosenza}{}{Abilitazione all'esercizio della professione di Ingegnere - Settore industriale}
+
+%----------------------------------------------------------------------------------------
+%	COMPUTER SKILLS SECTION
+%----------------------------------------------------------------------------------------
+
+\section{Skills}
+
+%\cvitem{Basic}{\textsc{C++}}
+\cvitem{Paradigms}{Object oriented, Event driven, Declarative, Stack-oriented, SemanticWeb}
+\cvitem{DSL}{Matlab, GLSL, GIS, Kinetic Rule Language, MassQL, Keyhole Markup Language,  EMBL, GeoML, GeoXL, PbdML, BdML,NeuroML, ChemML, AniML, Mzml, MzXML,SBML, Snakemake}
+\cvitem{Serverside}{Python,php, perl, bash, Java, REST API, Rust}
+\cvitem{Clientside}{Typescript, Javascript, Node.js, CSS,SCSS,  HTML5, MaterialUI, Bootstrap, Tailwindcss, jQuery, Ajax, JWT, Swift}
+\cvitem{CMS}{Prisma, Wordpress}
+\cvitem{Deployment}{ Serverless, FaaS, SaaS, SaaP, Microservices, Vercel, AWS Lambda, Netlify, Azure HPC, API-First, Docker, Compute-on-Demand }
+\cvitem{Environments}{Jupyter, Kaggle, Observable, JSFiddle, Codesandbox, Carbide}
+\cvitem{Problem Solvers}{Gurobi, Google-ORT, NAMD, GROMACS, VMD}
+\cvitem{Application Frameworks }{Laravel, Nextjs, .NET, Angular, Django, SciPy, Tensorflow, Keras, Pandas,Pytorch, Numpy, Tensorflowjs, ml5, React, Angular, Flask, WindowsEventLog API, NestJS, Oracle ADF, Mozilla Prioritized Task Scheduling, Pytorch, Cactus, Pyunit, Selenium, Karma, Jira, Jest, Threejs, Fiber, D3, OpenCV, Vite, nlp.js, WebDNN, brain.js, compromise, ApacheArrow, Cesium, Conda}
+\cvitem{VC}{Git, Bitbucket, Gitlab}
+\cvitem{DMS }{PostgreSQL, Neo4j, GraphQL, MySQL }
+\cvitem{Schemas and Formarts}{HDF5, FASTA, Molecular Graph Representation, PBD, SMILES, SMARTS, BAM, Knowledge graphs, GPX, TCX, FIT, YAML, JSON, Event Manifest Schema }
+\cvitem{Technologies}{MS, LC-MS/MS (QTOF,Quadrupole, Ion trap),DLS, UV-Spektroskopie, Flourescence and Atomic Force Mikroskopy,SPR, Mudpit, Native-MS, qPCR, NGS,IM,CE, TIMS-PASEF}
+
+%\section{Labor-Erfahrung}
+%\cvitem{Geräte}{{LC-MS/MS, DLS, UV-Spektroskopie, Mikroskopie, qRT-PCR, SPR}}
+
+%\section{Progetti IT}
+
+%\renewcommand{\listitemsymbol}{-~} % Changes the symbol used for lists
+
+%\cvlistitem{Sviluppo di un Sistema per la gestione di Ticketing}
+%\cvlistitem{Manutenzione  Evolutiva del Portale  ARPACAL (Agenzia  Regionale per  la Protezione dell'Ambiente della Calabria)}
+%\cvlistitem{Sviluppo di un sistema per la gestione delle Tasse di Concessione Regionale (TCR)}
+%\cvlistitem{Sviluppo di un Sistema per la gestione dei Verbali}
+%\cvlistitem{Manutenzione Evolutiva del Portale dei Tributi della Regione Calabria}
+%\cvlistitem{Sviluppo di un Sistema per la gestione delle Minute e delle Pratiche di Equitalia    attraverso l'interazione tramite Web Service}
+
+%----------------------------------------------------------------------------------------
+%	COMMUNICATION SKILLS SECTION
+%----------------------------------------------------------------------------------------
+
+%\section{Communication Skills}
+
+%\cvitem{2010}{Oral Presentation at the California Business Conference}
+%\cvitem{2009}{Poster at the Annual Business Conference in Oregon}
+
+%----------------------------------------------------------------------------------------
+%	LANGUAGES SECTION
+%----------------------------------------------------------------------------------------
+
+%\section{Languages}
+
+%\cvitemwithcomment{Englisch}{Fluent}{}
+%\cvitemwithcomment{German}{Intermediate}{}
+%\cvitemwithcomment{Dutch}{Basic}{Basic words and phrases only}
+
+%----------------------------------------------------------------------------------------
+%	INTERESTS SECTION
+%----------------------------------------------------------------------------------------
+
+%\section{Interessi}
+
+\renewcommand{\listitemsymbol}{-~} % Changes the symbol used for lists
+
+%\cvlistdoubleitem{Piano}{}
+%\cvlistitem{Atletica}
+
+%----------------------------------------------------------------------------------------
+%	COVER LETTER
+%----------------------------------------------------------------------------------------
+
+% To remove the cover letter, comment out this entire block
+
+% \clearpage
+
+% \recipient{Registrar General Harare }
+% \date{\today} % Letter date
+% \opening{Dear Sir/Madam} % Opening greeting
+% \closing{Freundliche Grüße,} % Closing phrase
+% \enclosure[Attached]{curriculum vit\ae{}} % List of enclosed documents
+
+
+\indent
+\justify
+%\par
+%\newpage
+
+
+%\\Referee : Prof Dr rer. nat. Hartmut Schlueter
+%\\Institute : University Klinik Eppendorf,  Klinische Chemie und Laboratoriumsmedizin
+%\\Email : hschluet@uke.de
+%\\Telephone :  +49 (0) 40 7410 - 58795
+
+%Referee: Prof Dr rer. nat Sebastian Springer 
+%\\Institute : Jacobs University Bremen
+%\\Email: s.springer@jacobs-university.de
+
+%Referee : Dr. Christopher Krisp
+%\\Institute : Macquarie University and  University Klinik Hamburg-Eppendorf 
+%\\Email : c.krisp@uke.de
+
+%Referee : Prof Dr rer. nat Dr Birger Anspach
+%\\ Institute: HAW Hamburg , Technical Biochemistry and Protein Formulation
+%\\ Email : birger.anspach@haw-hamburg.de
+
+
+
+
+
+
+
+\makeletterclosing % Print letter signature
+
+%----------------------------------------------------------------------------------------
+
+\end{document}
+
+
+
