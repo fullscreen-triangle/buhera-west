@@ -1,7 +1,20 @@
 'use client'
-import Globe from 'react-globe.gl';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import * as satellite from 'satellite.js';
+
+// Dynamic import for react-globe.gl to prevent SSR issues
+const Globe = dynamic(() => import('react-globe.gl').then(mod => mod.default), {
+  ssr: false,
+  loading: () => (
+    <div style={{ width: '100%', height: '100vh', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ color: 'white', textAlign: 'center' }}>
+        <div style={{ border: '4px solid transparent', borderTop: '4px solid white', borderRadius: '50%', width: '48px', height: '48px', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }}></div>
+        <p>Loading Satellite Network...</p>
+      </div>
+    </div>
+  )
+});
 
   const EARTH_RADIUS_KM = 6371; // km
   const TIME_STEP = 60 * 1000; // 1 minute per frame (real satellite speeds)
@@ -101,8 +114,10 @@ import * as satellite from 'satellite.js';
     }, [satData, time, selectedSatellite]);
 
     useEffect(() => {
-      setGlobeRadius(globeEl.current.getGlobeRadius());
-      globeEl.current.pointOfView({ altitude: 3.5 });
+      if (globeEl.current) {
+        setGlobeRadius(globeEl.current.getGlobeRadius());
+        globeEl.current.pointOfView({ altitude: 3.5 });
+      }
     }, []);
 
     return (
@@ -200,4 +215,5 @@ import * as satellite from 'satellite.js';
   };
 
 
+  export { Network as SatelliteNetwork };
   export default Network;

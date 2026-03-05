@@ -13,13 +13,15 @@ import { FaSearch, FaClock, FaRobot, FaVolumeUp, FaVolumeOff, FaTimes, FaExpand,
 import { TextureLoader, ShaderMaterial, Vector2, Mesh, SphereGeometry, MeshPhongMaterial } from 'three';
 import * as THREE from 'three';
 import * as solar from 'solar-calculator';
-import DayNightCycle from '@/components/solar/DayNightCycle';
 import WeatherGlobeComponent from '@/components/weather/WeatherGlobe';
 import InformationGlobe from '@/components/information/InformationGlobe';
-import { SatelliteNetwork } from '@/components/satellites/Network';
 import { AtmosphericVisualization } from '@/components/atmospheric/AtmosphericVisualization';
 import { OceanicVisualization } from '@/components/ocean/OceanicVisualization';
 import { TerrainVisualization } from '@/components/terrain/TerrainVisualization';
+
+// Dynamic imports for components that use R3F hooks (SSR-unsafe)
+const DayNightCycle = dynamic(() => import('@/components/solar/DayNightCycle'), { ssr: false });
+const SatelliteNetwork = dynamic(() => import('@/components/satellites/Network').then(mod => mod.default), { ssr: false });
 
 // Dynamic import for react-globe.gl to prevent SSR issues
 const Globe = dynamic(() => import('react-globe.gl'), {
@@ -441,8 +443,11 @@ function WeatherGlobe() {
 
   return (
     <div className="fixed inset-0">
-      {/* Time display */}
-      <div className="fixed bottom-4 left-4 z-10 bg-black/70 backdrop-blur-sm rounded-lg p-2 text-white text-sm">
+      {/* Time display - suppressHydrationWarning prevents SSR mismatch for dynamic time */}
+      <div 
+        className="fixed bottom-4 left-4 z-10 bg-black/70 backdrop-blur-sm rounded-lg p-2 text-white text-sm"
+        suppressHydrationWarning
+      >
         {new Date(dt).toLocaleString('en-US', { 
           year: 'numeric', 
           month: 'numeric', 
@@ -840,7 +845,7 @@ function Overlay() {
           {lastUpdated && (
             <div className="flex justify-between">
               <span>Last Updated:</span>
-              <span className="text-white">{new Date(lastUpdated).toLocaleTimeString()}</span>
+              <span className="text-white" suppressHydrationWarning>{new Date(lastUpdated).toLocaleTimeString()}</span>
             </div>
           )}
         </div>
@@ -929,7 +934,7 @@ function Details() {
 
           <div className="text-xs text-gray-500 bg-gray-800 p-3 rounded-lg">
             <p>Coordinates: {focusedMarker.lat?.toFixed(4)}, {focusedMarker.lng?.toFixed(4)}</p>
-            <p>Updated: {new Date(focusedMarker.timestamp).toLocaleString('en-US', { 
+            <p suppressHydrationWarning>Updated: {new Date(focusedMarker.timestamp).toLocaleString('en-US', { 
               year: 'numeric', 
               month: 'numeric', 
               day: 'numeric', 

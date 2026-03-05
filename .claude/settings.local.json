@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pdflatex -interaction=nonstopmode atmospheric-trajectory-completion.tex)",
+      "Bash(grep -n \"@twocolumnfalse\\\\|\\\\\\\\abstract\\\\|\\\\\\\\maketitle\" atmospheric-trajectory-completion.tex)",
+      "Bash(/c/Users/kundai/AppData/Local/Programs/Python/Python312/python -c \":*)",
+      "Bash(/c/Users/kundai/AppData/Local/Programs/Python/Python312/python -c \"import numpy; print\\(numpy.__version__\\)\")",
+      "Bash(/c/Users/kundai/AppData/Local/Programs/Python/Python312/python -c \"import matplotlib; print\\(matplotlib.__version__\\)\")",
+      "Bash(/c/Users/kundai/AppData/Local/Programs/Python/Python312/python -c \"import scipy; print\\(scipy.__version__\\)\")",
+      "Bash(/c/Users/kundai/AppData/Local/Programs/Python/Python312/python -c \"import requests; print\\(requests.__version__\\)\")",
+      "Bash(/c/Users/kundai/AppData/Local/Programs/Python/Python312/python fetch_weather.py)",
+      "Bash(/c/Users/kundai/AppData/Local/Programs/Python/Python312/python validate_trajectory_completion.py)",
+      "Bash(ls \"c:\\\\Users\\\\kundai\\\\Documents\\\\geosciences\\\\buhera-west\\\\README\"*)",
+      "Bash(ls \"c:\\\\Users\\\\kundai\\\\Documents\\\\geosciences\\\\buhera-west\\\\publication\\\\README\"*)",
+      "Bash(ls \"c:\\\\Users\\\\kundai\\\\Documents\\\\geosciences\\\\buhera-west\\\\publication\\\\atmospheric-trajectory-completion\\\\README\"*)"
+    ]
+  }
+}

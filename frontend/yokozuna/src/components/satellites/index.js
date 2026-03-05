@@ -9,13 +9,14 @@
  */
 
 // Import satellite components
-import Network from './Network.jsx';
+import Network, { SatelliteNetwork } from './Network.jsx';
 import StripImage from './StripImage.jsx';
 import PathReconstruction from './PathReconstruction.jsx';
 
 // Export individual components
 export {
   Network,
+  SatelliteNetwork,
   StripImage,
   PathReconstruction
 };

@@ -1,6 +1,15 @@
-import React, { useEffect, useState, useRef } from 'react';
-import Globe from 'react-globe.gl';
-import * as THREE from 'three';
+import dynamic from 'next/dynamic';
+import React, { useEffect, useState } from 'react';
+
+// Dynamic import for react-globe.gl to prevent SSR issues
+const Globe = dynamic(() => import('react-globe.gl').then(mod => mod.default), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-black flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+    </div>
+  )
+});
 
 const WEATHER_COLORS = {
   sunny: '#FFD700',
@@ -11,111 +20,35 @@ const WEATHER_COLORS = {
   clear: '#00CED1'
 };
 
-function createWeatherMarker(weatherData) {
-  const { weather, temp } = weatherData;
-  const color = WEATHER_COLORS[weather.toLowerCase()] || WEATHER_COLORS.clear;
-  
-  // Create marker size based on temperature (normalized)
-  const size = Math.max(0.5, Math.min(3, Math.abs(temp) / 10));
-  
-  const geometry = new THREE.SphereGeometry(size, 16, 16);
-  const material = new THREE.MeshLambertMaterial({
-    color: new THREE.Color(color),
-    transparent: true,
-    opacity: 0.8
-  });
-
-  const mesh = new THREE.Mesh(geometry, material);
-  
-  // Add a pulsing light effect
-  const light = new THREE.PointLight(color, 0.5, 50);
-  mesh.add(light);
-  
-  // Add atmospheric glow
-  const glowGeometry = new THREE.SphereGeometry(size * 1.5, 16, 16);
-  const glowMaterial = new THREE.MeshBasicMaterial({
-    color: color,
-    transparent: true,
-    opacity: 0.2,
-    side: THREE.BackSide
-  });
-  const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-  mesh.add(glow);
-
-  return mesh;
-}
-
 export default function WeatherGlobe({ 
   weatherData = [], 
   focusedLocation = null, 
-  onLocationClick,
   isLoading = false 
 }) {
-  const globeRef = useRef();
-  const [globeReady, setGlobeReady] = useState(false);
-  const [autoRotate, setAutoRotate] = useState(true);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
 
+  // Handle window dimensions safely for SSR
   useEffect(() => {
-    if (globeRef.current && globeReady) {
-      // Custom globe initialization
-      const globe = globeRef.current;
-      
-      // Set up controls
-      const controls = globe.controls();
-      controls.autoRotate = autoRotate && !focusedLocation;
-      controls.autoRotateSpeed = 0.5;
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.1;
-      controls.enableZoom = true;
-      controls.minDistance = 101;
-      controls.maxDistance = 400;
-    }
-  }, [globeReady, autoRotate, focusedLocation]);
-
-  useEffect(() => {
-    if (focusedLocation && globeRef.current) {
-      // Focus on the selected location
-      globeRef.current.pointOfView(
-        {
-          lat: focusedLocation.lat,
-          lng: focusedLocation.lng,
-          altitude: 2.5
-        },
-        1000
-      );
-      setAutoRotate(false);
-    } else if (globeRef.current) {
-      // Return to global view
-      globeRef.current.pointOfView(
-        {
-          lat: 0,
-          lng: 0,
-          altitude: 2.5
-        },
-        1000
-      );
-      setAutoRotate(true);
-    }
-  }, [focusedLocation]);
-
-  const handleMarkerClick = (marker) => {
-    if (onLocationClick) {
-      onLocationClick(marker);
-    }
-  };
-
-  const handleGlobeClick = ({ lat, lng }) => {
-    if (onLocationClick && !focusedLocation) {
-      onLocationClick({ lat, lng, isManualClick: true });
-    }
-  };
+    const updateDimensions = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    
+    // Set initial dimensions
+    updateDimensions();
+    
+    // Update on resize
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
 
   return (
     <div className="weather-globe-container" style={{ width: '100vw', height: '100vh' }}>
       <Globe
-        ref={globeRef}
-        width={window.innerWidth}
-        height={window.innerHeight}
+        width={dimensions.width}
+        height={dimensions.height}
         
         // Globe appearance
         globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
@@ -144,20 +77,13 @@ export default function WeatherGlobe({
         labelsData={focusedLocation ? [focusedLocation] : []}
         labelLat="lat"
         labelLng="lng"
-        labelText={d => d.name || `${d.lat.toFixed(2)}, ${d.lng.toFixed(2)}`}
+        labelText={d => d.name || `${d.lat?.toFixed(2)}, ${d.lng?.toFixed(2)}`}
         labelSize={1.5}
         labelColor="#FFFFFF"
         labelResolution={2}
         
-        // Interactions
-        onPointClick={handleMarkerClick}
-        onGlobeClick={handleGlobeClick}
-        
-        // Events
-        onGlobeReady={() => setGlobeReady(true)}
-        
-        // Controls
-        enablePointerInteraction={true}
+        // Non-interactive - disable pointer events
+        enablePointerInteraction={false}
       />
       
       {isLoading && (

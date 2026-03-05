@@ -1,11 +1,21 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Head from 'next/head';
-import Globe from 'react-globe.gl';
+import dynamic from 'next/dynamic';
 import AnimatedText from "@/components/AnimatedText";
 import Layout from "@/components/Layout";
 import TransitionEffect from "@/components/TransitionEffect";
 import globalDataService from '@/services/globalDataService';
 import enhancedWeatherService from '@/services/enhancedWeatherService';
+
+// Dynamic import for react-globe.gl to prevent SSR issues
+const Globe = dynamic(() => import('react-globe.gl').then(mod => mod.default), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-screen bg-black flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+    </div>
+  )
+});
 
 const MaritimeTrafficAnalysis = () => {
   const globeRef = useRef();
@@ -26,6 +36,20 @@ const MaritimeTrafficAnalysis = () => {
   const [trafficDensity, setTrafficDensity] = useState('medium');
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+
+  // Handle window dimensions safely for SSR
+  useEffect(() => {
+    const updateDimensions = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
 
   // Auto-update vessels every 30 seconds to simulate real-time tracking
   useEffect(() => {
@@ -654,8 +678,8 @@ const MaritimeTrafficAnalysis = () => {
           <div className="w-full h-screen">
             <Globe
               ref={globeRef}
-              width={window.innerWidth}
-              height={window.innerHeight}
+              width={dimensions.width}
+              height={dimensions.height}
               backgroundColor="rgba(0,0,0,1)"
               
               // Globe appearance

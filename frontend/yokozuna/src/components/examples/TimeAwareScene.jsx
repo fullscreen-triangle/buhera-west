@@ -2,12 +2,25 @@ import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Sky } from '@react-three/drei';
 import * as THREE from 'three';
-import Globe from 'react-globe.gl';
+import dynamic from 'next/dynamic';
 import useSceneTime from '../../hooks/useSceneTime';
 import Rain from '../particles/Rain';
 import Snow from '../particles/Snow';
 import Fog from '../particles/Fog';
 import Weather from '../weather/Weather';
+
+// Dynamic import for react-globe.gl to prevent SSR issues
+const Globe = dynamic(() => import('react-globe.gl').then(mod => mod.default), {
+  ssr: false,
+  loading: () => (
+    <div style={{ width: '100%', height: '400px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ color: 'white', textAlign: 'center' }}>
+        <div style={{ border: '4px solid transparent', borderTop: '4px solid white', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }}></div>
+        <p style={{ fontSize: '14px' }}>Loading Globe...</p>
+      </div>
+    </div>
+  )
+});
 
 /**
  * Time-aware scene with both globe and weather particles

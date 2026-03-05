@@ -3,10 +3,20 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
-import Globe from 'react-globe.gl';
+import dynamic from 'next/dynamic';
 import AnimatedText from "@/components/AnimatedText";
 import Layout from "@/components/Layout";
 import TransitionEffect from "@/components/TransitionEffect";
+
+// Dynamic import for react-globe.gl to prevent SSR issues
+const Globe = dynamic(() => import('react-globe.gl').then(mod => mod.default), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-screen bg-black flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+    </div>
+  )
+});
 
 const CellTowerVisualization = () => {
   const globeRef = useRef();
@@ -23,6 +33,20 @@ const CellTowerVisualization = () => {
   const [signalStrength, setSignalStrength] = useState(0.8);
   const [loading, setLoading] = useState(true);
   const [analysisMode, setAnalysisMode] = useState('coverage');
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+
+  // Handle window dimensions safely for SSR
+  useEffect(() => {
+    const updateDimensions = () => {
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
 
   // Load cell tower data
   useEffect(() => {
@@ -511,8 +535,8 @@ const CellTowerVisualization = () => {
           <div className="w-full h-screen">
             <Globe
               ref={globeRef}
-              width={window.innerWidth}
-              height={window.innerHeight}
+              width={dimensions.width}
+              height={dimensions.height}
               backgroundColor="rgba(0,0,0,1)"
               
               // Globe appearance

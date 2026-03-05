@@ -1,0 +1,48 @@
+This is BibTeX, Version 0.99d
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: atmospheric-trajectory-completion.aux
+Reallocating 'name_of_file' (item size: 1) to 9 items.
+The style file: plainnat.bst
+Reallocating 'name_of_file' (item size: 1) to 11 items.
+Database file #1: references.bib
+You've used 26 entries,
+            2773 wiz_defined-function locations,
+            800 strings with 9088 characters,
+and the built_in function-call counts, 11524 in all, are:
+= -- 1038
+> -- 588
+< -- 21
++ -- 209
+- -- 183
+* -- 928
+:= -- 1826
+add.period$ -- 94
+call.type$ -- 26
+change.case$ -- 132
+chr.to.int$ -- 26
+cite$ -- 52
+duplicate$ -- 533
+empty$ -- 979
+format.name$ -- 209
+if$ -- 2373
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 33
+newline$ -- 154
+num.names$ -- 104
+pop$ -- 259
+preamble$ -- 1
+purify$ -- 112
+quote$ -- 0
+skip$ -- 377
+stack$ -- 0
+substring$ -- 488
+swap$ -- 34
+text.length$ -- 2
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 251
+warning$ -- 0
+while$ -- 114
+width$ -- 0
+write$ -- 376

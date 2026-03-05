@@ -1,7 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import Globe from 'react-globe.gl';
+import dynamic from 'next/dynamic';
 import * as THREE from 'three';
 import { DEFAULT_COORDINATES } from '@/config/coordinates';
+
+// Dynamic import for react-globe.gl to prevent SSR issues
+const Globe = dynamic(() => import('react-globe.gl').then(mod => mod.default), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-black flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+    </div>
+  )
+});
 
 const InformationGlobe = ({ 
   locationData = DEFAULT_COORDINATES, 

@@ -1,0 +1,182 @@
+\begin{thebibliography}{26}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Allan(1966)]{Allan1966}
+D.~W. Allan.
+\newblock Statistics of atomic frequency standards.
+\newblock \emph{Proceedings of the IEEE}, 54\penalty0 (2):\penalty0 221--230,
+  1966.
+\newblock \doi{10.1109/PROC.1966.4634}.
+
+\bibitem[Batchelor(2000)]{BatchelorGK2000}
+G.~K. Batchelor.
+\newblock \emph{An Introduction to Fluid Dynamics}.
+\newblock Cambridge University Press, 2000.
+
+\bibitem[Bauer et~al.(2015)Bauer, Thorpe, and Brunet]{Bauer2015}
+P.~Bauer, A.~Thorpe, and G.~Brunet.
+\newblock The quiet revolution of numerical weather prediction.
+\newblock \emph{Nature}, 525\penalty0 (7567):\penalty0 47--55, 2015.
+\newblock \doi{10.1038/nature14956}.
+
+\bibitem[Bauer et~al.(2021)Bauer, Dueben, Hoefler, Quintino, Schulthess, and
+  Wedi]{Bauer2021}
+P.~Bauer, P.~D. Dueben, T.~Hoefler, T.~Quintino, T.~C. Schulthess, and N.~P.
+  Wedi.
+\newblock The digital revolution of {E}arth-system science.
+\newblock \emph{Nature Computational Science}, 1\penalty0 (2):\penalty0
+  104--113, 2021.
+\newblock \doi{10.1038/s43588-021-00023-0}.
+
+\bibitem[Bennett(1982)]{Bennett1982}
+C.~H. Bennett.
+\newblock The thermodynamics of computation---a review.
+\newblock \emph{International Journal of Theoretical Physics}, 21\penalty0
+  (12):\penalty0 905--940, 1982.
+\newblock \doi{10.1007/BF02084158}.
+
+\bibitem[Boltzmann(1896)]{Boltzmann1896}
+L.~Boltzmann.
+\newblock \emph{Vorlesungen {\"u}ber {G}astheorie}.
+\newblock J. A. Barth, Leipzig, 1896.
+
+\bibitem[Braginsky et~al.(1980)Braginsky, Vorontsov, and Thorne]{Braginsky1980}
+V.~B. Braginsky, Y.~I. Vorontsov, and K.~S. Thorne.
+\newblock Quantum nondemolition measurements.
+\newblock \emph{Science}, 209\penalty0 (4456):\penalty0 547--557, 1980.
+\newblock \doi{10.1126/science.209.4456.547}.
+
+\bibitem[Buizza et~al.(1999)Buizza, Miller, and Palmer]{Buizza1999}
+R.~Buizza, M.~Miller, and T.~N. Palmer.
+\newblock Stochastic representation of model uncertainties in the {ECMWF}
+  ensemble prediction system.
+\newblock \emph{Quarterly Journal of the Royal Meteorological Society},
+  125\penalty0 (560):\penalty0 2887--2908, 1999.
+\newblock \doi{10.1002/qj.49712556006}.
+
+\bibitem[Fefferman(2006)]{Fefferman2006}
+C.~L. Fefferman.
+\newblock Existence and smoothness of the {N}avier--{S}tokes equation.
+\newblock \emph{Clay Mathematics Institute Millennium Prize Problems}, pages
+  57--67, 2006.
+
+\bibitem[Feller(1968)]{Feller1968}
+W.~Feller.
+\newblock \emph{An Introduction to Probability Theory and Its Applications},
+  volume~1.
+\newblock Wiley, 3 edition, 1968.
+
+\bibitem[Gibbs(1902)]{Gibbs1902}
+J.~W. Gibbs.
+\newblock \emph{Elementary Principles in Statistical Mechanics}.
+\newblock Charles Scribner's Sons, New York, 1902.
+
+\bibitem[Herzberg(1945)]{Herzberg1945}
+G.~Herzberg.
+\newblock \emph{Molecular Spectra and Molecular Structure: {II}. {I}nfrared and
+  {R}aman Spectra of Polyatomic Molecules}.
+\newblock Van Nostrand Reinhold, New York, 1945.
+
+\bibitem[Jaynes(1957)]{Jaynes1957}
+E.~T. Jaynes.
+\newblock Information theory and statistical mechanics.
+\newblock \emph{Physical Review}, 106\penalty0 (4):\penalty0 620--630, 1957.
+\newblock \doi{10.1103/PhysRev.106.620}.
+
+\bibitem[Lam et~al.(2023)Lam, Sanchez-Gonzalez, Willson, Wirnsberger,
+  Fortunato, Alet, Ravuri, Ewalds, Eaton-Rosen, Hu, et~al.]{Lam2023}
+R.~Lam, A.~Sanchez-Gonzalez, M.~Willson, P.~Wirnsberger, M.~Fortunato, F.~Alet,
+  S.~Ravuri, T.~Ewalds, Z.~Eaton-Rosen, W.~Hu, et~al.
+\newblock {GraphCast}: Learning skillful medium-range global weather
+  forecasting.
+\newblock \emph{Science}, 382\penalty0 (6677):\penalty0 1416--1421, 2023.
+\newblock \doi{10.1126/science.adi2336}.
+
+\bibitem[Landauer(1961)]{Landauer1961}
+R.~Landauer.
+\newblock Irreversibility and heat generation in the computing process.
+\newblock \emph{IBM Journal of Research and Development}, 5\penalty0
+  (3):\penalty0 183--191, 1961.
+\newblock \doi{10.1147/rd.53.0183}.
+
+\bibitem[Lorenz(1963)]{Lorenz1963}
+E.~N. Lorenz.
+\newblock Deterministic nonperiodic flow.
+\newblock \emph{Journal of the Atmospheric Sciences}, 20\penalty0 (2):\penalty0
+  130--141, 1963.
+\newblock \doi{10.1175/1520-0469(1963)020<0130:DNF>2.0.CO;2}.
+
+\bibitem[Lorenz(1969)]{Lorenz1969}
+E.~N. Lorenz.
+\newblock The predictability of a flow which possesses many scales of motion.
+\newblock \emph{Tellus}, 21\penalty0 (3):\penalty0 289--307, 1969.
+\newblock \doi{10.3402/tellusa.v21i3.10086}.
+
+\bibitem[Lorenz(1982)]{Lorenz1982}
+E.~N. Lorenz.
+\newblock Atmospheric predictability experiments with a large numerical model.
+\newblock \emph{Tellus}, 34\penalty0 (6):\penalty0 505--513, 1982.
+\newblock \doi{10.3402/tellusa.v34i6.10836}.
+
+\bibitem[Maxwell(1871)]{Maxwell1871}
+J.~C. Maxwell.
+\newblock \emph{Theory of Heat}.
+\newblock Longmans, Green, and Co., London, 1871.
+
+\bibitem[Mizraji(2021)]{Mizraji2021}
+E.~Mizraji.
+\newblock The biological {M}axwell demon: {E}xploring the thermodynamics of
+  computation in biological systems.
+\newblock \emph{Journal of Theoretical Biology}, 530:\penalty0 110877, 2021.
+\newblock \doi{10.1016/j.jtbi.2021.110877}.
+
+\bibitem[Palmer(2019)]{Palmer2019}
+T.~N. Palmer.
+\newblock The {ECMWF} ensemble prediction system: {L}ooking back (more than) 25
+  years and projecting forward 25 years.
+\newblock \emph{Quarterly Journal of the Royal Meteorological Society},
+  145\penalty0 (S1):\penalty0 12--24, 2019.
+\newblock \doi{10.1002/qj.3383}.
+
+\bibitem[Pathak et~al.(2022)Pathak, Subramanian, Harrington, Raja,
+  Chattopadhyay, Mardani, Kurth, Hall, Li, Azizzadenesheli, Hassanzadeh,
+  Kashinath, and Anandkumar]{Pathak2022}
+J.~Pathak, S.~Subramanian, P.~Harrington, S.~Raja, A.~Chattopadhyay,
+  M.~Mardani, T.~Kurth, D.~Hall, Z.~Li, K.~Azizzadenesheli, P.~Hassanzadeh,
+  K.~Kashinath, and A.~Anandkumar.
+\newblock Four{C}ast{N}et: A global data-driven high-resolution weather
+  forecasting model.
+\newblock \emph{arXiv preprint arXiv:2202.11214}, 2022.
+
+\bibitem[Poincar{\'e}(1890)]{Poincare1890}
+H.~Poincar{\'e}.
+\newblock Sur le probl{\`e}me des trois corps et les {\'e}quations de la
+  dynamique.
+\newblock \emph{Acta Mathematica}, 13:\penalty0 1--270, 1890.
+
+\bibitem[Shannon(1948)]{Shannon1948}
+C.~E. Shannon.
+\newblock A mathematical theory of communication.
+\newblock \emph{The Bell System Technical Journal}, 27\penalty0 (3):\penalty0
+  379--423, 1948.
+\newblock \doi{10.1002/j.1538-7305.1948.tb01338.x}.
+
+\bibitem[Szil{\'a}rd(1929)]{Szilard1929}
+L.~Szil{\'a}rd.
+\newblock {\"U}ber die {E}ntropieverminderung in einem thermodynamischen
+  {S}ystem bei {E}ingriffen intelligenter {W}esen.
+\newblock \emph{Zeitschrift f{\"u}r Physik}, 53\penalty0 (11--12):\penalty0
+  840--856, 1929.
+\newblock \doi{10.1007/BF01341281}.
+
+\bibitem[Wilson et~al.(1955)Wilson, Decius, and Cross]{Wilson1955}
+E.~B. Wilson, J.~C. Decius, and P.~C. Cross.
+\newblock \emph{Molecular Vibrations: The Theory of Infrared and Raman
+  Vibrational Spectra}.
+\newblock McGraw-Hill, New York, 1955.
+
+\end{thebibliography}
