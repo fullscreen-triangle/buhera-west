@@ -1,0 +1,16 @@
+{
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "react/no-unknown-property": ["error", {
+      "ignore": [
+        "position", "intensity", "args", "attach", "castShadow", "receiveShadow",
+        "rotation", "dispose", "object", "transparent", "distance", "decay",
+        "depthWrite", "blending", "sizeAttenuation", "vertexColors", "side",
+        "wireframe", "emissive", "emissiveIntensity", "roughness", "metalness",
+        "opacity", "color", "map", "fog", "toneMapped", "geometry", "material",
+        "count", "frustumCulled", "renderOrder"
+      ]
+    }],
+    "react-hooks/exhaustive-deps": "warn"
+  }
+}

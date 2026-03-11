@@ -83,3 +83,54 @@ node_modules/
 Thumbs.db
 ehthumbs.db
 Desktop.ini 
+
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Configuration files with secrets
+.env.local
+.env.production
+config/secrets.yaml
+secrets.json
+
+# API keys and tokens
+api_keys.txt
+*.key
+*.pem
+
+# Output files
+outputs/
+results/
+experiments/
+checkpoints/
+
+node_modules/
+.next/

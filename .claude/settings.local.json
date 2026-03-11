@@ -12,7 +12,10 @@
       "Bash(/c/Users/kundai/AppData/Local/Programs/Python/Python312/python validate_trajectory_completion.py)",
       "Bash(ls \"c:\\\\Users\\\\kundai\\\\Documents\\\\geosciences\\\\buhera-west\\\\README\"*)",
       "Bash(ls \"c:\\\\Users\\\\kundai\\\\Documents\\\\geosciences\\\\buhera-west\\\\publication\\\\README\"*)",
-      "Bash(ls \"c:\\\\Users\\\\kundai\\\\Documents\\\\geosciences\\\\buhera-west\\\\publication\\\\atmospheric-trajectory-completion\\\\README\"*)"
+      "Bash(ls \"c:\\\\Users\\\\kundai\\\\Documents\\\\geosciences\\\\buhera-west\\\\publication\\\\atmospheric-trajectory-completion\\\\README\"*)",
+      "Bash(npm install mapbox-gl suncalc)",
+      "Bash(npm install --legacy-peer-deps mapbox-gl suncalc)",
+      "Bash(npx next build)"
     ]
   }
 }

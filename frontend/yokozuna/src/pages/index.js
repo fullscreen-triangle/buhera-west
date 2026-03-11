@@ -20,7 +20,6 @@ import { OceanicVisualization } from '@/components/ocean/OceanicVisualization';
 import { TerrainVisualization } from '@/components/terrain/TerrainVisualization';
 
 // Dynamic imports for components that use R3F hooks (SSR-unsafe)
-const DayNightCycle = dynamic(() => import('@/components/solar/DayNightCycle'), { ssr: false });
 const SatelliteNetwork = dynamic(() => import('@/components/satellites/Network').then(mod => mod.default), { ssr: false });
 
 // Dynamic import for react-globe.gl to prevent SSR issues
@@ -462,16 +461,6 @@ function WeatherGlobe() {
       <div className={hasLoaded ? 'block' : 'hidden'}>
         {renderVisualization()}
       </div>
-      
-      {/* Day/Night Cycle Integration */}
-      <DayNightCycle
-        timeOfDay={((dt / 86400000) % 1) * 24}
-        cycleSpeed={0}
-        intensity={1}
-        onChange={(time, isDay) => {
-          console.log('Day/Night cycle update:', { time, isDay });
-        }}
-      />
       
       {/* Loading overlay */}
       <div className={`fixed inset-0 bg-black transition-opacity duration-3000 ${hasLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
