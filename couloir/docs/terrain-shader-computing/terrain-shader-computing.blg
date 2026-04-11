@@ -1,0 +1,48 @@
+This is BibTeX, Version 0.99e
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: terrain-shader-computing.aux
+Reallocating 'name_of_file' (item size: 1) to 9 items.
+The style file: plainnat.bst
+Reallocating 'name_of_file' (item size: 1) to 11 items.
+Database file #1: references.bib
+You've used 31 entries,
+            2773 wiz_defined-function locations,
+            818 strings with 9585 characters,
+and the built_in function-call counts, 12277 in all, are:
+= -- 1124
+> -- 448
+< -- 32
++ -- 166
+- -- 135
+* -- 865
+:= -- 1884
+add.period$ -- 96
+call.type$ -- 31
+change.case$ -- 130
+chr.to.int$ -- 31
+cite$ -- 62
+duplicate$ -- 662
+empty$ -- 1187
+format.name$ -- 170
+if$ -- 2598
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 42
+newline$ -- 163
+num.names$ -- 124
+pop$ -- 291
+preamble$ -- 1
+purify$ -- 107
+quote$ -- 0
+skip$ -- 447
+stack$ -- 0
+substring$ -- 571
+swap$ -- 63
+text.length$ -- 5
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 286
+warning$ -- 0
+while$ -- 136
+width$ -- 0
+write$ -- 418
