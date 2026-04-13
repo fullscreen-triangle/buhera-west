@@ -1,0 +1,170 @@
+\begin{thebibliography}{29}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Anguelov et~al.(2010)Anguelov, Dulong, Filip, et~al.]{Anguelov2010}
+Dragomir Anguelov, Carole Dulong, Daniel Filip, et~al.
+\newblock {Google Street View}: Capturing the world at street level.
+\newblock \emph{Computer}, 43\penalty0 (6):\penalty0 32--38, 2010.
+
+\bibitem[Bauer et~al.(2015)Bauer, Thorpe, and Brunet]{Bauer2015}
+Peter Bauer, Alan Thorpe, and Gilbert Brunet.
+\newblock The quiet revolution of numerical weather prediction.
+\newblock \emph{Nature}, 525:\penalty0 47--55, 2015.
+
+\bibitem[Boltzmann(1896)]{Boltzmann1896}
+Ludwig Boltzmann.
+\newblock \emph{Vorlesungen \"uber Gastheorie}.
+\newblock J.~A.\ Barth, Leipzig, 1896.
+
+\bibitem[Braginsky et~al.(1980)Braginsky, Vorontsov, and Thorne]{Braginsky1980}
+Vladimir~B. Braginsky, Yuri~I. Vorontsov, and Kip~S. Thorne.
+\newblock Quantum nondemolition measurements.
+\newblock \emph{Science}, 209:\penalty0 547--557, 1980.
+
+\bibitem[Bruneton and Neyret(2008)]{Bruneton2008}
+Eric Bruneton and Fabrice Neyret.
+\newblock Precomputed atmospheric scattering.
+\newblock \emph{Computer Graphics Forum}, 27\penalty0 (4):\penalty0 1079--1086,
+  2008.
+
+\bibitem[Buizza et~al.(1999)Buizza, Miller, and Palmer]{Buizza1999}
+Roberto Buizza, Martin Miller, and Tim~N. Palmer.
+\newblock Stochastic representation of model uncertainties in the {ECMWF}
+  ensemble prediction system.
+\newblock \emph{Quarterly Journal of the Royal Meteorological Society},
+  125:\penalty0 2887--2908, 1999.
+
+\bibitem[Drusch et~al.(2012)Drusch, Del~Bello, Carlier, et~al.]{Drusch2012}
+Matthias Drusch, Umberto Del~Bello, S\'ebastien Carlier, et~al.
+\newblock {S}entinel-2: {ESA}'s optical high-resolution mission for {GMES}
+  operational services.
+\newblock \emph{Remote Sensing of Environment}, 120:\penalty0 25--36, 2012.
+
+\bibitem[Farr et~al.(2007)Farr, Rosen, Caro, et~al.]{Farr2007}
+Tom~G. Farr, Paul~A. Rosen, Edward Caro, et~al.
+\newblock The {S}huttle {R}adar {T}opography {M}ission.
+\newblock \emph{Reviews of Geophysics}, 45:\penalty0 RG2004, 2007.
+
+\bibitem[Gibbs(1902)]{Gibbs1902}
+J.~Willard Gibbs.
+\newblock \emph{Elementary Principles in Statistical Mechanics}.
+\newblock Charles Scribner's Sons, New York, 1902.
+
+\bibitem[Heisenberg(1927)]{Heisenberg1927}
+Werner Heisenberg.
+\newblock {\"U}ber den anschaulichen {I}nhalt der quantentheoretischen
+  {K}inematik und {M}echanik.
+\newblock \emph{Zeitschrift f\"ur Physik}, 43:\penalty0 172--198, 1927.
+
+\bibitem[Hersbach et~al.(2020)Hersbach, Bell, Berrisford, et~al.]{Hersbach2020}
+Hans Hersbach, Bill Bell, Paul Berrisford, et~al.
+\newblock The {ERA5} global reanalysis.
+\newblock \emph{Quarterly Journal of the Royal Meteorological Society},
+  146:\penalty0 1999--2049, 2020.
+
+\bibitem[Herzberg(1945)]{Herzberg1945}
+Gerhard Herzberg.
+\newblock \emph{Molecular Spectra and Molecular Structure {II}: Infrared and
+  {R}aman Spectra of Polyatomic Molecules}.
+\newblock Van Nostrand, New York, 1945.
+
+\bibitem[Hillaire(2020)]{Hillaire2020}
+S\'ebastien Hillaire.
+\newblock A scalable and production ready sky and atmosphere rendering
+  technique.
+\newblock \emph{Computer Graphics Forum}, 39\penalty0 (4):\penalty0 13--22,
+  2020.
+
+\bibitem[Holton and Hakim(2013)]{Holton2013}
+James~R. Holton and Gregory~J. Hakim.
+\newblock \emph{An Introduction to Dynamic Meteorology}.
+\newblock Academic Press, 5th edition, 2013.
+
+\bibitem[Kaplan(1996)]{Kaplan1966}
+Elliott~D. Kaplan.
+\newblock Understanding {GPS}: Principles and applications.
+\newblock \emph{Artech House}, 1996.
+
+\bibitem[Lam et~al.(2023)Lam, Sanchez-Gonzalez, Willson, et~al.]{Lam2023}
+Remi Lam, Alvaro Sanchez-Gonzalez, Matthew Willson, et~al.
+\newblock {GraphCast}: Learning skillful medium-range global weather
+  forecasting.
+\newblock \emph{Science}, 382:\penalty0 1416--1421, 2023.
+
+\bibitem[Liou(2002)]{Liou2002}
+Kuo-Nan Liou.
+\newblock \emph{An Introduction to Atmospheric Radiation}.
+\newblock Academic Press, 2nd edition, 2002.
+
+\bibitem[Lorenz(1963)]{Lorenz1963}
+Edward~N. Lorenz.
+\newblock Deterministic nonperiodic flow.
+\newblock \emph{Journal of the Atmospheric Sciences}, 20:\penalty0 130--141,
+  1963.
+
+\bibitem[Lorenz(1969)]{Lorenz1969}
+Edward~N. Lorenz.
+\newblock The predictability of a flow which possesses many scales of motion.
+\newblock \emph{Tellus}, 21:\penalty0 289--307, 1969.
+
+\bibitem[Misra and Enge(2006)]{Misra2006}
+Pratap Misra and Per Enge.
+\newblock Global positioning system: Signals, measurements, and performance.
+\newblock \emph{Ganga-Jamuna Press}, 2006.
+
+\bibitem[M\"uller et~al.(2006)M\"uller, Wonka, Haegler, Ulmer, and
+  Van~Gool]{Muller2014}
+Pascal M\"uller, Peter Wonka, Simon Haegler, Andreas Ulmer, and Luc Van~Gool.
+\newblock Procedural modeling of buildings.
+\newblock In \emph{ACM Transactions on Graphics}, volume~25, pages 614--623,
+  2006.
+
+\bibitem[Nishita et~al.(1993)Nishita, Sirai, Tadamura, and
+  Nakamae]{Nishita1993}
+Tomoyuki Nishita, Takao Sirai, Katsumi Tadamura, and Eihachiro Nakamae.
+\newblock Display of the {E}arth taking into account atmospheric scattering.
+\newblock \emph{Computer Graphics}, 27:\penalty0 175--182, 1993.
+
+\bibitem[Pathak et~al.(2022)Pathak, Subramanian, Harrington,
+  et~al.]{Pathak2022}
+Jaideep Pathak, Shashank Subramanian, Peter Harrington, et~al.
+\newblock {FourCastNet}: A global data-driven high-resolution weather
+  forecasting model using adaptive {F}ourier neural operators.
+\newblock \emph{arXiv preprint arXiv:2202.11214}, 2022.
+
+\bibitem[Perlin(1985)]{Perlin1985}
+Ken Perlin.
+\newblock An image synthesizer.
+\newblock In \emph{Proceedings of SIGGRAPH~'85}, pages 287--296, 1985.
+
+\bibitem[Poincar\'e(1890)]{Poincare1890}
+Henri Poincar\'e.
+\newblock Sur le probl\`eme des trois corps et les \'equations de la dynamique.
+\newblock \emph{Acta Mathematica}, 13:\penalty0 1--270, 1890.
+
+\bibitem[Sch\"onberger and Frahm(2016)]{Schoenberger2016}
+Johannes~L. Sch\"onberger and Jan-Michael Frahm.
+\newblock Structure-from-motion revisited.
+\newblock \emph{IEEE Conference on Computer Vision and Pattern Recognition},
+  pages 4104--4113, 2016.
+
+\bibitem[Shannon(1948)]{Shannon1948}
+Claude~E. Shannon.
+\newblock A mathematical theory of communication.
+\newblock \emph{Bell System Technical Journal}, 27:\penalty0 379--423, 1948.
+
+\bibitem[von Neumann(1932)]{vonNeumann1932}
+John von Neumann.
+\newblock \emph{Mathematische {G}rundlagen der {Q}uantenmechanik}.
+\newblock Springer, Berlin, 1932.
+
+\bibitem[Wallace and Hobbs(2006)]{Wallace2006}
+John~M. Wallace and Peter~V. Hobbs.
+\newblock \emph{Atmospheric Science: An Introductory Survey}.
+\newblock Academic Press, 2nd edition, 2006.
+
+\end{thebibliography}
