@@ -164,7 +164,6 @@ uniform float u_sunIntensity;
 uniform vec3  u_cameraPosition;
 uniform float u_wireframe;
 uniform float u_radius;
-uniform float u_showLasers;
 
 varying vec3  vWorldPosition;
 varying vec3  vWorldNormal;
@@ -267,56 +266,10 @@ vec3 waterSurface(vec3 V){
   return mix(vec3(0.05,0.20,0.35), refl, fr*0.6) + u_sunColor*ss*2.0;
 }
 
-// ── directional lasers ───────────────────────────────────────────
-// Four laser beams along cardinal directions, projected onto terrain
-
-float laserBeam(vec2 localXZ, float angle, float width, float pulse){
-  // rotate local coords by angle
-  float c = cos(angle);
-  float s = sin(angle);
-  vec2 rotated = vec2(c*localXZ.x + s*localXZ.y, -s*localXZ.x + c*localXZ.y);
-  // beam along +X after rotation
-  float along = rotated.x;
-  float perp = abs(rotated.y);
-  // only outward from center
-  float mask = smoothstep(0.0, 0.3, along);
-  // beam width narrows with distance
-  float w = width * (1.0 - along * 0.5 / u_radius);
-  float beam = smoothstep(w, w*0.3, perp) * mask;
-  // pulsing glow
-  beam *= 0.6 + 0.4 * sin(along * 8.0 - pulse * 4.0);
-  // fade at edges
-  beam *= smoothstep(u_radius, u_radius*0.7, along);
-  return beam;
-}
-
-vec3 directionalLasers(vec2 localXZ){
-  float t = u_time;
-  vec3 laserColor = vec3(0.0);
-
-  // N (red) — angle 0 (points along +Z in world, which is +Y in plane)
-  float bN = laserBeam(localXZ, 1.5708, 0.04, t);
-  laserColor += vec3(1.0, 0.15, 0.1) * bN * 2.0;
-
-  // S (blue) — angle pi
-  float bS = laserBeam(localXZ, -1.5708, 0.04, t);
-  laserColor += vec3(0.1, 0.3, 1.0) * bS * 2.0;
-
-  // E (green) — angle -pi/2
-  float bE = laserBeam(localXZ, 0.0, 0.04, t);
-  laserColor += vec3(0.1, 1.0, 0.2) * bE * 2.0;
-
-  // W (amber) — angle pi/2
-  float bW = laserBeam(localXZ, 3.1416, 0.04, t);
-  laserColor += vec3(1.0, 0.7, 0.1) * bW * 2.0;
-
-  return laserColor;
-}
-
 // ── main ─────────────────────────────────────────────────────────
 
 void main(){
-  // circular clip — discard outside radius
+  // circular clip
   if(vRadialDist > 1.0) discard;
 
   vec3 V = normalize(u_cameraPosition - vWorldPosition);
@@ -335,14 +288,6 @@ void main(){
   vec3 scatter = atmosphericScattering(V, normalize(u_sunDirection), dist);
   vec3 trans = exp(-vec3(0.0015) * dist);
   color = color * trans + scatter;
-
-  // directional lasers overlay
-  if(u_showLasers > 0.5){
-    // local XZ on the terrain plane (pre-rotation: position.xy is the plane)
-    vec2 localXZ = vWorldPosition.xz;
-    vec3 lasers = directionalLasers(localXZ);
-    color += lasers;
-  }
 
   // circular edge glow
   float edgeGlow = smoothstep(0.88, 1.0, vRadialDist);

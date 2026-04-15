@@ -24,7 +24,6 @@ export default function TerrainMesh({
   sunElevation = 0.6,
   sunIntensity = 1.4,
   wireframe = false,
-  showLasers = true,
   animate = true,
   offset = [0, 0],
 }) {
@@ -51,7 +50,6 @@ export default function TerrainMesh({
         u_cameraPosition: { value: new THREE.Vector3() },
         u_wireframe:      { value: 0.0 },
         u_radius:         { value: radius },
-        u_showLasers:     { value: 1.0 },
       },
       side: THREE.DoubleSide,
       wireframe: false,
@@ -74,7 +72,6 @@ export default function TerrainMesh({
     m.uniforms.u_offset.value.set(offset[0], offset[1])
     m.uniforms.u_radius.value = radius
     m.uniforms.u_wireframe.value = wireframe ? 1.0 : 0.0
-    m.uniforms.u_showLasers.value = showLasers ? 1.0 : 0.0
     m.wireframe = wireframe
 
     const az = sunAzimuth
@@ -85,7 +82,7 @@ export default function TerrainMesh({
       Math.cos(el) * Math.cos(az)
     ).normalize()
   }, [amplitude, frequency, octaves, lacunarity, gain, waterLevel,
-      sunAzimuth, sunElevation, sunIntensity, wireframe, showLasers,
+      sunAzimuth, sunElevation, sunIntensity, wireframe,
       offset, radius])
 
   // per-frame: time + camera

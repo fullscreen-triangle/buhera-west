@@ -13,6 +13,20 @@ const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-mont" });
 export default function App({ Component, pageProps }) {
   const router = useRouter();
 
+  // Pages can opt out of default layout via getLayout
+  const getLayout = Component.getLayout;
+  if (getLayout) {
+    return (
+      <>
+        <Head>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <link rel="icon" href="/favicon.ico" />
+        </Head>
+        {getLayout(<Component key={router.asPath} {...pageProps} />)}
+      </>
+    );
+  }
+
   return (
     <>
       <Head>
