@@ -1,20 +1,29 @@
 /**
  * TerrainEngine — Self-contained terrain rendering component.
  *
- * - Circular terrain (shader-clipped, edge glow)
- * - Free orbit camera centered on terrain midpoint
- * - Wireframe toggle
- * - 3D directional laser beams (N/S/E/W)
- * - Sky dome + water floor
- * - Live HUD with all sliders + camera coordinate readout
+ * Modes:
+ *   ORBIT  — free-orbit camera around the terrain (default)
+ *   WALKER — first-person walker, WASD + mouse, terrain-following
+ *
+ * Toggle with the V key or the VIEW button in the HUD.
+ *
+ * Features:
+ *   - Circular terrain (shader-clipped, edge glow)
+ *   - GPU-displaced + partition-classified materials
+ *   - 3D directional laser beams (N/S/E/W)
+ *   - Sky dome + water floor
+ *   - Live HUD sliders, coordinate readout, walker stats
  */
 
-import { useState, useCallback, useRef, Suspense } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo, Suspense } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stats } from '@react-three/drei'
 import * as THREE from 'three'
 import TerrainMesh from './TerrainMesh'
 import DirectionalLasers from './DirectionalLasers'
+import WalkerController from './WalkerController'
+
+const TERRAIN_RADIUS = 10
 
 // ─── sky dome ────────────────────────────────────────────────────────
 
@@ -57,11 +66,10 @@ function BaseRing({ radius }) {
   )
 }
 
-// ─── camera + cursor readout (inside Canvas) ────────────────────────
+// ─── orbit readout (inside Canvas) ──────────────────────────────────
 
-function SceneReadout({ controlsRef, onUpdate, radius }) {
+function OrbitReadout({ controlsRef, onUpdate, radius }) {
   const { camera, mouse, raycaster } = useThree()
-  const groundRef = useRef()
   const tmp = useRef({
     pos: new THREE.Vector3(),
     target: new THREE.Vector3(),
@@ -75,35 +83,22 @@ function SceneReadout({ controlsRef, onUpdate, radius }) {
     t.target.copy(controlsRef.current?.target ?? new THREE.Vector3())
     t.fwd.copy(t.target).sub(t.pos).normalize()
 
-    // azimuth: angle in XZ plane from +X axis (standard math),
-    // converted to compass bearing (0° = N, 90° = E, 180° = S, 270° = W)
-    // World convention here: -Z is North (lasers).
-    const azRad = Math.atan2(t.fwd.x, -t.fwd.z) // 0 when looking N
-    let azDeg = (azRad * 180) / Math.PI
+    let azDeg = (Math.atan2(t.fwd.x, -t.fwd.z) * 180) / Math.PI
     if (azDeg < 0) azDeg += 360
-
-    // elevation: angle above horizontal (positive = looking down)
     const elDeg = (Math.asin(-t.fwd.y) * 180) / Math.PI
 
-    // distance from origin
-    const dist = t.pos.length()
-
-    // cursor hit on horizontal plane at y=0 (ground level approx)
     let cursorWorld = null
     let cursorCardinal = ''
     raycaster.setFromCamera(mouse, camera)
-    const planeY = 0
     const ray = raycaster.ray
     if (Math.abs(ray.direction.y) > 1e-6) {
-      const tHit = (planeY - ray.origin.y) / ray.direction.y
+      const tHit = (0 - ray.origin.y) / ray.direction.y
       if (tHit > 0) {
         t.hit.copy(ray.origin).addScaledVector(ray.direction, tHit)
         const r = Math.sqrt(t.hit.x * t.hit.x + t.hit.z * t.hit.z)
         if (r <= radius * 1.05) {
           cursorWorld = [t.hit.x, t.hit.z]
-          // cardinal: compass bearing from origin to cursor
-          const bRad = Math.atan2(t.hit.x, -t.hit.z)
-          let bDeg = (bRad * 180) / Math.PI
+          let bDeg = (Math.atan2(t.hit.x, -t.hit.z) * 180) / Math.PI
           if (bDeg < 0) bDeg += 360
           cursorCardinal = bearingToCardinal(bDeg, r)
         }
@@ -113,27 +108,22 @@ function SceneReadout({ controlsRef, onUpdate, radius }) {
     onUpdate({
       camPos: [t.pos.x, t.pos.y, t.pos.z],
       target: [t.target.x, t.target.y, t.target.z],
-      azimuth: azDeg,
-      elevation: elDeg,
-      distance: dist,
-      cursorWorld,
-      cursorCardinal,
+      azimuth: azDeg, elevation: elDeg, distance: t.pos.length(),
+      cursorWorld, cursorCardinal,
     })
   })
-
   return null
 }
 
 function bearingToCardinal(deg, dist) {
-  const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
-                'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW', 'N']
-  const idx = Math.round(deg / 22.5)
-  return `${dirs[idx]} (${deg.toFixed(0)}°, r=${dist.toFixed(2)})`
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
+                'S','SSW','SW','WSW','W','WNW','NW','NNW','N']
+  return `${dirs[Math.round(deg / 22.5)]} (${deg.toFixed(0)}°, r=${dist.toFixed(2)})`
 }
 
 // ─── HUD ─────────────────────────────────────────────────────────────
 
-function HUD({ params, onChange }) {
+function HUD({ params, onChange, viewMode, onToggleView, dimmed }) {
   const slider = (label, key, min, max, step) => (
     <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
       <label style={{ width: 80, fontSize: 10, color: '#aaa' }}>{label}</label>
@@ -175,9 +165,28 @@ function HUD({ params, onChange }) {
       fontFamily: 'monospace', zIndex: 10,
       backdropFilter: 'blur(10px)',
       border: '1px solid rgba(88,230,217,0.15)',
+      opacity: dimmed ? 0.35 : 1,
+      transition: 'opacity 0.2s',
+      pointerEvents: dimmed ? 'none' : 'auto',
     }}>
-      <div style={{ color: '#58E6D9', fontSize: 11, fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>
-        TERRAIN ENGINE
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 8,
+      }}>
+        <span style={{ color: '#58E6D9', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>
+          TERRAIN ENGINE
+        </span>
+        <button
+          onClick={onToggleView}
+          title="Press V to toggle"
+          style={{
+            background: viewMode === 'walker' ? '#ff7f0e' : '#58E6D9',
+            color: '#000', border: 'none', borderRadius: 4,
+            padding: '2px 10px', fontSize: 10, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'monospace',
+          }}>
+          {viewMode.toUpperCase()}
+        </button>
       </div>
       {slider('Amplitude', 'amplitude', 0.5, 8, 0.1)}
       {slider('Frequency', 'frequency', 0.2, 4, 0.05)}
@@ -197,72 +206,83 @@ function HUD({ params, onChange }) {
   )
 }
 
-// ─── coordinate readout ──────────────────────────────────────────────
+// ─── orbit coordinate readout ───────────────────────────────────────
 
-function CoordinateReadout({ data }) {
+function OrbitPanel({ data }) {
   if (!data) return null
   const { camPos, target, azimuth, elevation, distance, cursorWorld, cursorCardinal } = data
   const fmt = (n) => n.toFixed(2).padStart(7)
-  const fmtAz = (n) => n.toFixed(0).padStart(3)
-
-  // compass label for camera bearing
-  const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
-                'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW', 'N']
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
+                'S','SSW','SW','WSW','W','WNW','NW','NNW','N']
   const compass = dirs[Math.round(azimuth / 22.5)]
-
   return (
-    <div style={{
-      position: 'absolute', top: 12, right: 12,
-      background: 'rgba(0,0,0,0.75)', borderRadius: 8,
-      padding: '10px 14px', minWidth: 260,
-      fontFamily: 'monospace', fontSize: 10, color: '#aaa',
-      zIndex: 10,
-      backdropFilter: 'blur(10px)',
-      border: '1px solid rgba(88,230,217,0.15)',
-    }}>
-      <div style={{ color: '#58E6D9', fontSize: 11, fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>
-        VIEW
-      </div>
-      <div style={{ marginBottom: 3 }}>
-        <span style={{ color: '#666' }}>cam   </span>
-        ({fmt(camPos[0])}, {fmt(camPos[1])}, {fmt(camPos[2])})
-      </div>
-      <div style={{ marginBottom: 3 }}>
-        <span style={{ color: '#666' }}>target</span>
-        ({fmt(target[0])}, {fmt(target[1])}, {fmt(target[2])})
-      </div>
-      <div style={{ marginBottom: 3 }}>
-        <span style={{ color: '#666' }}>look  </span>
-        <span style={{ color: '#58E6D9' }}>{compass.padEnd(3)}</span>
-        {' '}az={fmtAz(azimuth)}° el={elevation >= 0 ? '+' : ''}{elevation.toFixed(0).padStart(3)}°
-      </div>
-      <div style={{ marginBottom: 3 }}>
-        <span style={{ color: '#666' }}>dist  </span>
-        {distance.toFixed(2)} units
-      </div>
-      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '6px 0' }} />
+    <div style={panelStyle()}>
+      <div style={panelTitle()}>VIEW</div>
+      <div>cam    ({fmt(camPos[0])}, {fmt(camPos[1])}, {fmt(camPos[2])})</div>
+      <div>target ({fmt(target[0])}, {fmt(target[1])}, {fmt(target[2])})</div>
+      <div>look   <span style={{ color: '#58E6D9' }}>{compass.padEnd(3)}</span>
+        {' '}az={azimuth.toFixed(0).padStart(3)}° el={elevation >= 0 ? '+' : ''}{elevation.toFixed(0).padStart(3)}°</div>
+      <div>dist   {distance.toFixed(2)} units</div>
+      <div style={divider()} />
       <div style={{ color: '#666', fontSize: 9, marginBottom: 2 }}>CURSOR (ground plane)</div>
       {cursorWorld ? (
         <>
           <div>xz = ({fmt(cursorWorld[0])}, {fmt(cursorWorld[1])})</div>
           <div style={{ color: '#58E6D9' }}>{cursorCardinal}</div>
         </>
-      ) : (
-        <div style={{ color: '#444' }}>— off terrain —</div>
-      )}
+      ) : <div style={{ color: '#444' }}>— off terrain —</div>}
     </div>
   )
 }
 
-// ─── laser legend ────────────────────────────────────────────────────
+// ─── walker readout ─────────────────────────────────────────────────
+
+function WalkerPanel({ data, locked }) {
+  if (!data) return null
+  const fmt = (n) => n.toFixed(2).padStart(7)
+  return (
+    <div style={panelStyle()}>
+      <div style={panelTitle()}>WALKER</div>
+      <div>pos    ({fmt(data.position[0])}, {fmt(data.position[1])}, {fmt(data.position[2])})</div>
+      <div>ground {data.groundY.toFixed(2)} &nbsp; eye+{data.eyeHeight.toFixed(2)}</div>
+      <div>speed  {data.speed.toFixed(2)} u/s {data.running ? <span style={{ color: '#ff7f0e' }}>(run)</span> : ''}</div>
+      <div>on     <span style={{ color: '#58E6D9' }}>{data.material}</span></div>
+      <div style={divider()} />
+      <div style={{ color: locked ? '#58E6D9' : '#ff7f0e', fontSize: 9 }}>
+        {locked ? '● pointer locked' : '○ click to lock pointer'}
+      </div>
+    </div>
+  )
+}
+
+function panelStyle() {
+  return {
+    position: 'absolute', top: 12, right: 12,
+    background: 'rgba(0,0,0,0.75)', borderRadius: 8,
+    padding: '10px 14px', minWidth: 260,
+    fontFamily: 'monospace', fontSize: 10, color: '#aaa',
+    zIndex: 10,
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(88,230,217,0.15)',
+    whiteSpace: 'pre',
+  }
+}
+
+function panelTitle() {
+  return { color: '#58E6D9', fontSize: 11, fontWeight: 700, marginBottom: 8, letterSpacing: 1 }
+}
+
+function divider() {
+  return { borderTop: '1px solid rgba(255,255,255,0.06)', margin: '6px 0' }
+}
+
+// ─── laser legend ───────────────────────────────────────────────────
 
 function LaserLegend({ visible }) {
   if (!visible) return null
   const items = [
-    { dir: 'N', color: '#ff2820' },
-    { dir: 'S', color: '#1a4eff' },
-    { dir: 'E', color: '#1aff33' },
-    { dir: 'W', color: '#ffb31a' },
+    { dir: 'N', color: '#ff2820' }, { dir: 'S', color: '#1a4eff' },
+    { dir: 'E', color: '#1aff33' }, { dir: 'W', color: '#ffb31a' },
   ]
   return (
     <div style={{
@@ -279,9 +299,50 @@ function LaserLegend({ visible }) {
   )
 }
 
-// ─── info ────────────────────────────────────────────────────────────
+// ─── walker crosshair ───────────────────────────────────────────────
 
-function InfoPanel() {
+function Crosshair({ visible }) {
+  if (!visible) return null
+  return (
+    <div style={{
+      position: 'absolute', top: '50%', left: '50%',
+      transform: 'translate(-50%, -50%)',
+      pointerEvents: 'none', zIndex: 5,
+    }}>
+      <svg width="18" height="18" viewBox="0 0 18 18">
+        <circle cx="9" cy="9" r="1.2" fill="#58E6D9" />
+        <line x1="9" y1="2"  x2="9"  y2="6"  stroke="#58E6D9" strokeWidth="1" />
+        <line x1="9" y1="12" x2="9"  y2="16" stroke="#58E6D9" strokeWidth="1" />
+        <line x1="2" y1="9"  x2="6"  y2="9"  stroke="#58E6D9" strokeWidth="1" />
+        <line x1="12" y1="9" x2="16" y2="9"  stroke="#58E6D9" strokeWidth="1" />
+      </svg>
+    </div>
+  )
+}
+
+// ─── walker hint ────────────────────────────────────────────────────
+
+function WalkerHint({ visible, locked }) {
+  if (!visible) return null
+  return (
+    <div style={{
+      position: 'absolute', bottom: 40, left: '50%',
+      transform: 'translateX(-50%)',
+      background: 'rgba(0,0,0,0.7)', borderRadius: 6,
+      padding: '6px 14px', fontFamily: 'monospace',
+      fontSize: 10, color: '#aaa', zIndex: 10,
+    }}>
+      {locked
+        ? <>WASD <span style={{ color: '#666' }}>move</span> &nbsp; SHIFT <span style={{ color: '#666' }}>run</span> &nbsp; SPACE <span style={{ color: '#666' }}>hop</span> &nbsp; ESC <span style={{ color: '#666' }}>unlock</span> &nbsp; V <span style={{ color: '#666' }}>orbit</span></>
+        : <>Click the scene to lock the pointer &nbsp; • &nbsp; Press V to return to orbit</>
+      }
+    </div>
+  )
+}
+
+// ─── info (bottom-right) ────────────────────────────────────────────
+
+function InfoPanel({ viewMode }) {
   return (
     <div style={{
       position: 'absolute', bottom: 12, right: 12,
@@ -289,12 +350,15 @@ function InfoPanel() {
       padding: '6px 12px', fontFamily: 'monospace',
       fontSize: 10, color: '#666', zIndex: 10,
     }}>
-      Orbit: drag &nbsp;|&nbsp; Zoom: scroll &nbsp;|&nbsp; Pan: right-drag
+      {viewMode === 'orbit'
+        ? <>Orbit: drag &nbsp;|&nbsp; Zoom: scroll &nbsp;|&nbsp; V: walker</>
+        : <>Walker: WASD + mouse &nbsp;|&nbsp; V: orbit</>
+      }
     </div>
   )
 }
 
-// ─── main ────────────────────────────────────────────────────────────
+// ─── main ───────────────────────────────────────────────────────────
 
 export default function TerrainEngine({ className, style }) {
   const [params, setParams] = useState({
@@ -312,15 +376,28 @@ export default function TerrainEngine({ className, style }) {
     showLasers: true,
   })
 
-  const [readout, setReadout] = useState(null)
+  const [viewMode, setViewMode] = useState('orbit') // 'orbit' | 'walker'
+  const [orbitData, setOrbitData] = useState(null)
+  const [walkerData, setWalkerData] = useState(null)
+  const [pointerLocked, setPointerLocked] = useState(false)
+
   const controlsRef = useRef()
-  // throttle readout updates to ~10 Hz
-  const lastUpdateRef = useRef(0)
-  const handleReadout = useCallback((data) => {
+  const lastOrbitUpdate = useRef(0)
+  const lastWalkerUpdate = useRef(0)
+
+  const handleOrbitUpdate = useCallback((data) => {
     const now = performance.now()
-    if (now - lastUpdateRef.current > 100) {
-      lastUpdateRef.current = now
-      setReadout(data)
+    if (now - lastOrbitUpdate.current > 100) {
+      lastOrbitUpdate.current = now
+      setOrbitData(data)
+    }
+  }, [])
+
+  const handleWalkerUpdate = useCallback((data) => {
+    const now = performance.now()
+    if (now - lastWalkerUpdate.current > 80) {
+      lastWalkerUpdate.current = now
+      setWalkerData(data)
     }
   }, [])
 
@@ -328,7 +405,31 @@ export default function TerrainEngine({ className, style }) {
     setParams(prev => ({ ...prev, [key]: value }))
   }, [])
 
-  const terrainRadius = 10
+  const toggleView = useCallback(() => {
+    setViewMode(prev => prev === 'orbit' ? 'walker' : 'orbit')
+  }, [])
+
+  // V key toggles mode
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.code === 'KeyV' && !e.repeat) toggleView()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [toggleView])
+
+  // combine terrain params for the walker sampler
+  const terrainParams = useMemo(() => ({
+    amplitude: params.amplitude,
+    frequency: params.frequency,
+    octaves: params.octaves,
+    lacunarity: params.lacunarity,
+    gain: params.gain,
+    waterLevel: params.waterLevel,
+    radius: TERRAIN_RADIUS,
+  }), [params.amplitude, params.frequency, params.octaves, params.lacunarity,
+      params.gain, params.waterLevel])
+
   const targetY = params.amplitude * 0.5
 
   return (
@@ -339,6 +440,7 @@ export default function TerrainEngine({ className, style }) {
         width: '100%', height: '100%',
         minHeight: 500,
         background: '#060608',
+        cursor: viewMode === 'walker' && pointerLocked ? 'none' : 'default',
         ...style,
       }}
     >
@@ -346,7 +448,7 @@ export default function TerrainEngine({ className, style }) {
         camera={{
           position: [15, targetY + 10, 15],
           fov: 50,
-          near: 0.1,
+          near: 0.01,
           far: 1000,
         }}
         gl={{
@@ -362,13 +464,13 @@ export default function TerrainEngine({ className, style }) {
             sunIntensity={params.sunIntensity}
           />
           <WaterFloor
-            radius={terrainRadius}
+            radius={TERRAIN_RADIUS}
             waterLevel={params.waterLevel}
             amplitude={params.amplitude}
           />
-          <BaseRing radius={terrainRadius} />
+          <BaseRing radius={TERRAIN_RADIUS} />
           <TerrainMesh
-            radius={terrainRadius}
+            radius={TERRAIN_RADIUS}
             segments={params.segments}
             amplitude={params.amplitude}
             frequency={params.frequency}
@@ -382,31 +484,49 @@ export default function TerrainEngine({ className, style }) {
             wireframe={params.wireframe}
           />
           <DirectionalLasers
-            radius={terrainRadius}
+            radius={TERRAIN_RADIUS}
             amplitude={params.amplitude}
             visible={params.showLasers}
           />
-          <OrbitControls
-            ref={controlsRef}
-            enableDamping
-            dampingFactor={0.08}
-            minDistance={3}
-            maxDistance={50}
-            target={[0, targetY, 0]}
-          />
-          <SceneReadout
-            controlsRef={controlsRef}
-            onUpdate={handleReadout}
-            radius={terrainRadius}
-          />
+
+          {viewMode === 'orbit' ? (
+            <>
+              <OrbitControls
+                ref={controlsRef}
+                enableDamping dampingFactor={0.08}
+                minDistance={3} maxDistance={50}
+                target={[0, targetY, 0]}
+              />
+              <OrbitReadout
+                controlsRef={controlsRef}
+                onUpdate={handleOrbitUpdate}
+                radius={TERRAIN_RADIUS}
+              />
+            </>
+          ) : (
+            <WalkerController
+              terrainParams={terrainParams}
+              onUpdate={handleWalkerUpdate}
+              onLockChange={setPointerLocked}
+            />
+          )}
         </Suspense>
         <Stats />
       </Canvas>
 
-      <HUD params={params} onChange={handleChange} />
-      <CoordinateReadout data={readout} />
+      <HUD
+        params={params}
+        onChange={handleChange}
+        viewMode={viewMode}
+        onToggleView={toggleView}
+        dimmed={viewMode === 'walker' && pointerLocked}
+      />
+      {viewMode === 'orbit' && <OrbitPanel data={orbitData} />}
+      {viewMode === 'walker' && <WalkerPanel data={walkerData} locked={pointerLocked} />}
       <LaserLegend visible={params.showLasers} />
-      <InfoPanel />
+      <Crosshair visible={viewMode === 'walker' && pointerLocked} />
+      <WalkerHint visible={viewMode === 'walker'} locked={pointerLocked} />
+      <InfoPanel viewMode={viewMode} />
     </div>
   )
 }
