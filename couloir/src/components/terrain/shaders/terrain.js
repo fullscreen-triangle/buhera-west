@@ -84,7 +84,9 @@ uniform float u_gain;
 uniform float u_time;
 uniform vec2  u_offset;
 uniform float u_waterLevel;
-uniform float u_radius;          // clipping radius
+uniform float u_radius;           // clipping radius
+uniform float u_useHeightmap;     // 0 = procedural, 1 = real
+uniform sampler2D u_heightmap;    // Float32 heightmap texture
 
 varying vec3  vWorldPosition;
 varying vec3  vWorldNormal;
@@ -93,50 +95,66 @@ varying float vSlope;
 varying vec2  vUv;
 varying float vRadialDist;       // 0 at center, 1 at edge
 
+// sample normalised heightmap at plane (x, y).
+// plane [-radius, +radius] maps to uv [0, 1].
+float sampleHM(vec2 planeXY){
+  vec2 uv = vec2(
+    (planeXY.x + u_radius) / (2.0 * u_radius),
+    1.0 - (planeXY.y + u_radius) / (2.0 * u_radius)
+  );
+  return texture2D(u_heightmap, uv).r;
+}
+
 void main(){
   vUv = uv;
 
-  // radial distance from center (plane is centered at origin)
   float r = length(position.xy);
   vRadialDist = r / u_radius;
-
-  // ── elevation ──
-  vec3 sp = vec3(
-    position.x * u_frequency + u_offset.x,
-    position.y * u_frequency + u_offset.y,
-    u_time * 0.008
-  );
-
-  float h = fbm(sp, u_octaves, u_lacunarity, u_gain);
-  h = h * 0.5 + 0.5;
-
-  // ridge noise
-  float ridge = 1.0 - abs(snoise(sp * 2.0));
-  ridge *= ridge;
-  h = mix(h, ridge, 0.35);
-
-  // terracing
-  float plateau = snoise(sp * 0.3) * 0.5 + 0.5;
-  h = mix(h, floor(h * 6.0) / 6.0, plateau * 0.15);
-
-  // fade to zero at edge for clean circular boundary
   float edgeFade = smoothstep(1.0, 0.92, vRadialDist);
-  h *= edgeFade;
+
+  float h;
+  float hR;
+  float hU;
+  float eps;
+
+  if (u_useHeightmap > 0.5) {
+    // ── real-world heightmap branch ──
+    eps = 0.05;
+    h  = sampleHM(position.xy)                       * edgeFade;
+    hR = sampleHM(position.xy + vec2(eps, 0.0))      * edgeFade;
+    hU = sampleHM(position.xy + vec2(0.0, eps))      * edgeFade;
+  } else {
+    // ── procedural fBm branch ──
+    vec3 sp = vec3(
+      position.x * u_frequency + u_offset.x,
+      position.y * u_frequency + u_offset.y,
+      u_time * 0.008
+    );
+
+    h = fbm(sp, u_octaves, u_lacunarity, u_gain);
+    h = h * 0.5 + 0.5;
+    float ridge = 1.0 - abs(snoise(sp * 2.0));
+    ridge *= ridge;
+    h = mix(h, ridge, 0.35);
+    float plateau = snoise(sp * 0.3) * 0.5 + 0.5;
+    h = mix(h, floor(h * 6.0) / 6.0, plateau * 0.15);
+    h *= edgeFade;
+
+    eps = 0.005;
+    vec3 spR = sp + vec3(eps, 0, 0);
+    vec3 spU = sp + vec3(0, eps, 0);
+    hR = (fbm(spR, u_octaves, u_lacunarity, u_gain) * 0.5 + 0.5);
+    hU = (fbm(spU, u_octaves, u_lacunarity, u_gain) * 0.5 + 0.5);
+    hR = mix(hR, pow(1.0 - abs(snoise(spR * 2.0)), 2.0), 0.35) * edgeFade;
+    hU = mix(hU, pow(1.0 - abs(snoise(spU * 2.0)), 2.0), 0.35) * edgeFade;
+  }
 
   vElevation = h;
 
   vec3 displaced = position;
   displaced.y += h * u_amplitude;
 
-  // ── normal via finite differences ──
-  float eps = 0.005;
-  vec3 spR = sp + vec3(eps, 0, 0);
-  vec3 spU = sp + vec3(0, eps, 0);
-  float hR = (fbm(spR, u_octaves, u_lacunarity, u_gain)*0.5+0.5);
-  float hU = (fbm(spU, u_octaves, u_lacunarity, u_gain)*0.5+0.5);
-  hR = mix(hR, pow(1.0-abs(snoise(spR*2.0)),2.0), 0.35) * edgeFade;
-  hU = mix(hU, pow(1.0-abs(snoise(spU*2.0)),2.0), 0.35) * edgeFade;
-
+  // normal via finite differences
   vec3 tangent  = normalize(vec3(eps, (hR - h) * u_amplitude, 0.0));
   vec3 binormal = normalize(vec3(0.0, (hU - h) * u_amplitude, eps));
   vec3 n = normalize(cross(tangent, binormal));

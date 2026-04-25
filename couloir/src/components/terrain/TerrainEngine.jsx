@@ -22,6 +22,7 @@ import * as THREE from 'three'
 import TerrainMesh from './TerrainMesh'
 import DirectionalLasers from './DirectionalLasers'
 import WalkerController from './WalkerController'
+import LocationPanel from './LocationPanel'
 
 const TERRAIN_RADIUS = 10
 
@@ -381,6 +382,16 @@ export default function TerrainEngine({ className, style }) {
   const [walkerData, setWalkerData] = useState(null)
   const [pointerLocked, setPointerLocked] = useState(false)
 
+  // real-world terrain state
+  const [source, setSource] = useState('procedural') // 'procedural' | 'real'
+  const [heightmap, setHeightmap] = useState(null)   // { data, width, height, ... }
+  const [locationName, setLocationName] = useState(null)
+
+  const handleHeightmapLoaded = useCallback((hm, name) => {
+    setHeightmap(hm)
+    setLocationName(name)
+  }, [])
+
   const controlsRef = useRef()
   const lastOrbitUpdate = useRef(0)
   const lastWalkerUpdate = useRef(0)
@@ -418,7 +429,7 @@ export default function TerrainEngine({ className, style }) {
     return () => window.removeEventListener('keydown', handler)
   }, [toggleView])
 
-  // combine terrain params for the walker sampler
+  // combine terrain params for the walker sampler (includes heightmap in real mode)
   const terrainParams = useMemo(() => ({
     amplitude: params.amplitude,
     frequency: params.frequency,
@@ -427,8 +438,9 @@ export default function TerrainEngine({ className, style }) {
     gain: params.gain,
     waterLevel: params.waterLevel,
     radius: TERRAIN_RADIUS,
+    heightmap: source === 'real' ? heightmap : null,
   }), [params.amplitude, params.frequency, params.octaves, params.lacunarity,
-      params.gain, params.waterLevel])
+      params.gain, params.waterLevel, source, heightmap])
 
   const targetY = params.amplitude * 0.5
 
@@ -482,6 +494,7 @@ export default function TerrainEngine({ className, style }) {
             sunElevation={params.sunElevation}
             sunIntensity={params.sunIntensity}
             wireframe={params.wireframe}
+            heightmap={source === 'real' ? heightmap : null}
           />
           <DirectionalLasers
             radius={TERRAIN_RADIUS}
@@ -520,6 +533,12 @@ export default function TerrainEngine({ className, style }) {
         viewMode={viewMode}
         onToggleView={toggleView}
         dimmed={viewMode === 'walker' && pointerLocked}
+      />
+      <LocationPanel
+        source={source}
+        onSourceChange={setSource}
+        onHeightmapLoaded={handleHeightmapLoaded}
+        heightmapInfo={heightmap ? { name: locationName } : null}
       />
       {viewMode === 'orbit' && <OrbitPanel data={orbitData} />}
       {viewMode === 'walker' && <WalkerPanel data={walkerData} locked={pointerLocked} />}

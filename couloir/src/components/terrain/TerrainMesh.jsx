@@ -1,15 +1,43 @@
 /**
  * TerrainMesh — GPU-displaced terrain on a dense PlaneGeometry grid,
- * clipped to a circle in the fragment shader.  PlaneGeometry gives us
- * the regular vertex grid needed for proper fBm displacement + normals.
- * The circular shape comes from the shader discarding fragments outside
- * u_radius, with an edge-fade in the vertex shader for smooth falloff.
+ * clipped to a circle in the fragment shader.
+ *
+ * Displacement source:
+ *   - procedural fBm (default), or
+ *   - Float32 heightmap texture (real-world mode, set via `heightmap` prop)
  */
 
 import { useRef, useEffect, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { terrainVertexShader, terrainFragmentShader } from './shaders/terrain'
+
+// 1×1 placeholder heightmap texture for procedural mode
+function makePlaceholderTexture() {
+  const tex = new THREE.DataTexture(
+    new Float32Array([0]),
+    1, 1,
+    THREE.RedFormat,
+    THREE.FloatType,
+  )
+  tex.needsUpdate = true
+  return tex
+}
+
+function makeHeightmapTexture(hm) {
+  const tex = new THREE.DataTexture(
+    hm.data,
+    hm.width, hm.height,
+    THREE.RedFormat,
+    THREE.FloatType,
+  )
+  tex.minFilter = THREE.LinearFilter
+  tex.magFilter = THREE.LinearFilter
+  tex.wrapS = THREE.ClampToEdgeWrapping
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  tex.needsUpdate = true
+  return tex
+}
 
 export default function TerrainMesh({
   radius = 10,
@@ -26,12 +54,16 @@ export default function TerrainMesh({
   wireframe = false,
   animate = true,
   offset = [0, 0],
+  heightmap = null,   // null | { data, width, height }
 }) {
   const matRef = useRef()
+  const hmTexRef = useRef()
   const { camera } = useThree()
 
   // create shader material once
   const material = useMemo(() => {
+    const placeholder = makePlaceholderTexture()
+    hmTexRef.current = placeholder
     const mat = new THREE.ShaderMaterial({
       vertexShader: terrainVertexShader,
       fragmentShader: terrainFragmentShader,
@@ -50,6 +82,8 @@ export default function TerrainMesh({
         u_cameraPosition: { value: new THREE.Vector3() },
         u_wireframe:      { value: 0.0 },
         u_radius:         { value: radius },
+        u_useHeightmap:   { value: 0.0 },
+        u_heightmap:      { value: placeholder },
       },
       side: THREE.DoubleSide,
       wireframe: false,
@@ -58,7 +92,7 @@ export default function TerrainMesh({
     return mat
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // push prop changes into uniforms
+  // push scalar/vector props into uniforms
   useEffect(() => {
     const m = matRef.current
     if (!m) return
@@ -74,16 +108,41 @@ export default function TerrainMesh({
     m.uniforms.u_wireframe.value = wireframe ? 1.0 : 0.0
     m.wireframe = wireframe
 
-    const az = sunAzimuth
-    const el = sunElevation
+    const az = sunAzimuth, el = sunElevation
     m.uniforms.u_sunDirection.value.set(
       Math.cos(el) * Math.sin(az),
       Math.sin(el),
-      Math.cos(el) * Math.cos(az)
+      Math.cos(el) * Math.cos(az),
     ).normalize()
   }, [amplitude, frequency, octaves, lacunarity, gain, waterLevel,
       sunAzimuth, sunElevation, sunIntensity, wireframe,
       offset, radius])
+
+  // swap heightmap texture when prop changes
+  useEffect(() => {
+    const m = matRef.current
+    if (!m) return
+
+    if (heightmap) {
+      // dispose previous if it wasn't the placeholder
+      if (hmTexRef.current && hmTexRef.current.image?.width > 1) {
+        hmTexRef.current.dispose()
+      }
+      const tex = makeHeightmapTexture(heightmap)
+      hmTexRef.current = tex
+      m.uniforms.u_heightmap.value = tex
+      m.uniforms.u_useHeightmap.value = 1.0
+    } else {
+      m.uniforms.u_useHeightmap.value = 0.0
+    }
+  }, [heightmap])
+
+  // cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (hmTexRef.current) hmTexRef.current.dispose()
+    }
+  }, [])
 
   // per-frame: time + camera
   useFrame((state) => {
@@ -93,8 +152,6 @@ export default function TerrainMesh({
     m.uniforms.u_cameraPosition.value.copy(camera.position)
   })
 
-  // PlaneGeometry sized to 2*radius, centered at origin, then
-  // rotated to XZ plane.  The shader clips to a circle of u_radius.
   const side = radius * 2
   return (
     <mesh

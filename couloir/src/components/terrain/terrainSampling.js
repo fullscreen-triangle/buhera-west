@@ -187,45 +187,85 @@ function fbm(x, y, z, octaves, lacunarity, gain) {
   return sum / norm
 }
 
+// ─── bilinear heightmap sampling (real-world terrain) ────────────
+
+/**
+ * Bilinear-sample a Float32Array heightmap at world (x, z).
+ * The heightmap covers [-radius, +radius] on both axes.
+ * Returns a normalised [0,1] height.
+ */
+export function sampleHeightmap(worldX, worldZ, hm, radius) {
+  const { data, width: W, height: H } = hm
+  // normalise to [0, 1]
+  let u = (worldX + radius) / (2 * radius)
+  // world -Z is "north" and the heightmap's row 0 is also "north",
+  // so v=1 (top) should correspond to worldZ = -radius.
+  let v = 1 - (worldZ + radius) / (2 * radius)
+
+  // clamp (slight over-sampling past edge shows boundary)
+  u = Math.max(0, Math.min(1, u))
+  v = Math.max(0, Math.min(1, v))
+
+  const fx = u * (W - 1)
+  const fy = v * (H - 1)
+  const x0 = Math.floor(fx), x1 = Math.min(W - 1, x0 + 1)
+  const y0 = Math.floor(fy), y1 = Math.min(H - 1, y0 + 1)
+  const tx = fx - x0, ty = fy - y0
+
+  const h00 = data[y0 * W + x0]
+  const h10 = data[y0 * W + x1]
+  const h01 = data[y1 * W + x0]
+  const h11 = data[y1 * W + x1]
+
+  const h0 = h00 * (1 - tx) + h10 * tx
+  const h1 = h01 * (1 - tx) + h11 * tx
+  return h0 * (1 - ty) + h1 * ty
+}
+
 // ─── full height function — mirrors the vertex shader ─────────────
 
 /**
  * Returns terrain height in normalised [0,1] space.
  * Multiply by params.amplitude to get world Y.
  *
- * The shader samples fBm at position.xy (plane coords pre-rotation).
- * The plane is rotated by -PI/2 about X, so plane_y = -world_z.
+ * If p.heightmap is supplied (real-world mode), bilinear-samples it.
+ * Otherwise falls back to the procedural fBm/ridge/terrace chain
+ * that the GPU shader uses in procedural mode.
  */
 export function terrainHeightNorm(worldX, worldZ, p) {
+  // ── real-world heightmap branch ──
+  if (p.heightmap) {
+    const rNorm = Math.sqrt(worldX * worldX + worldZ * worldZ) / p.radius
+    const edgeFade = smoothstep01(1.0, 0.92, rNorm)
+    let h = sampleHeightmap(worldX, worldZ, p.heightmap, p.radius)
+    h *= edgeFade
+    return h
+  }
+
+  // ── procedural fBm branch ──
   const freq = p.frequency
   const sx = worldX * freq + (p.offsetX || 0)
   const sy = (-worldZ) * freq + (p.offsetY || 0)
   const sz = p.timeOffset || 0
 
-  // radial distance for edge fade
   const rNorm = Math.sqrt(worldX * worldX + worldZ * worldZ) / p.radius
   const edgeFade = smoothstep01(1.0, 0.92, rNorm)
 
-  // base fBm → [0,1]
   let h = fbm(sx, sy, sz, p.octaves, p.lacunarity, p.gain)
   h = h * 0.5 + 0.5
 
-  // ridge noise (mix 0.35)
   const ridgeRaw = snoise(sx * 2, sy * 2, sz * 2)
   let ridge = 1 - Math.abs(ridgeRaw)
   ridge = ridge * ridge
   h = h * 0.65 + ridge * 0.35
 
-  // terracing (mix by plateau * 0.15)
   const plateauRaw = snoise(sx * 0.3, sy * 0.3, sz * 0.3)
   const plateau = plateauRaw * 0.5 + 0.5
   const terrace = Math.floor(h * 6) / 6
   const mixT = plateau * 0.15
   h = h * (1 - mixT) + terrace * mixT
 
-  // edge fade
   h *= edgeFade
-
   return h
 }
 
