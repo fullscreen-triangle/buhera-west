@@ -23,6 +23,7 @@ import TerrainMesh from './TerrainMesh'
 import DirectionalLasers from './DirectionalLasers'
 import WalkerController from './WalkerController'
 import LocationPanel from './LocationPanel'
+import TerrainTools from './TerrainTools'
 
 const TERRAIN_RADIUS = 10
 
@@ -65,6 +66,45 @@ function BaseRing({ radius }) {
       <meshBasicMaterial color={[0.15, 0.5, 0.65]} transparent opacity={0.5} />
     </mesh>
   )
+}
+
+// ─── auto-orbit (inside Canvas) ────────────────────────────────────
+// When active, rotates the camera in a horizontal circle around `target`,
+// preserving the camera's distance and elevation at activation time.
+
+function AutoOrbit({ active, target }) {
+  const { camera } = useThree()
+  const stateRef = useRef(null)
+  const targetVec = useRef(new THREE.Vector3())
+
+  useEffect(() => {
+    if (!active) { stateRef.current = null; return }
+    targetVec.current.set(...target)
+    const dx = camera.position.x - targetVec.current.x
+    const dz = camera.position.z - targetVec.current.z
+    const radius = Math.sqrt(dx * dx + dz * dz)
+    const theta = Math.atan2(dz, dx)
+    stateRef.current = {
+      radius: Math.max(radius, 4),
+      y: camera.position.y,
+      theta,
+    }
+  }, [active, target, camera])
+
+  useFrame((state, delta) => {
+    if (!active || !stateRef.current) return
+    const s = stateRef.current
+    s.theta += delta * 0.25  // ~14°/s
+    targetVec.current.set(...target)
+    camera.position.set(
+      targetVec.current.x + s.radius * Math.cos(s.theta),
+      s.y,
+      targetVec.current.z + s.radius * Math.sin(s.theta),
+    )
+    camera.lookAt(targetVec.current)
+  })
+
+  return null
 }
 
 // ─── orbit readout (inside Canvas) ──────────────────────────────────
@@ -277,6 +317,86 @@ function divider() {
   return { borderTop: '1px solid rgba(255,255,255,0.06)', margin: '6px 0' }
 }
 
+// ─── tools panel (measurement + orbit pivot) ───────────────────────
+
+function ToolsPanel({ measure, orbitTarget, autoOrbit,
+                     onToggleAutoOrbit, onClearPivot, onClearMeasurements }) {
+  const fmt = (n) => n.toFixed(2).padStart(7)
+  return (
+    <div style={{
+      position: 'absolute', top: 12, right: 282,
+      background: 'rgba(0,0,0,0.75)', borderRadius: 8,
+      padding: '10px 14px', minWidth: 220,
+      fontFamily: 'monospace', fontSize: 10, color: '#aaa',
+      zIndex: 10,
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(88,230,217,0.15)',
+    }}>
+      <div style={{ color: '#58E6D9', fontSize: 11, fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>
+        TOOLS
+      </div>
+      <div style={{ color: '#666', fontSize: 9, marginBottom: 4 }}>
+        L-CLICK = measure &nbsp; R-CLICK = pivot
+      </div>
+
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '4px 0' }} />
+      <div style={{ color: '#666', fontSize: 9, marginBottom: 2 }}>MEASUREMENT</div>
+      {measure ? (
+        <>
+          <div>p1 ({fmt(measure.p1[0])}, {fmt(measure.p1[1])}, {fmt(measure.p1[2])})</div>
+          <div>p2 ({fmt(measure.p2[0])}, {fmt(measure.p2[1])}, {fmt(measure.p2[2])})</div>
+          <div style={{ color: '#00ffff', marginTop: 2 }}>
+            dist = {measure.distance.toFixed(3)} units &nbsp;
+            <span style={{ color: '#666' }}>(#{measure.count})</span>
+          </div>
+          <button onClick={onClearMeasurements} style={smallBtn()}>
+            clear (M)
+          </button>
+        </>
+      ) : (
+        <div style={{ color: '#444' }}>— click two points —</div>
+      )}
+
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '6px 0 4px' }} />
+      <div style={{ color: '#666', fontSize: 9, marginBottom: 2 }}>ORBIT PIVOT</div>
+      {orbitTarget ? (
+        <>
+          <div style={{ color: '#ff44ff' }}>
+            ({fmt(orbitTarget[0])}, {fmt(orbitTarget[1])}, {fmt(orbitTarget[2])})
+          </div>
+          <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+            <button
+              onClick={onToggleAutoOrbit}
+              style={{
+                ...smallBtn(),
+                background: autoOrbit ? '#58E6D9' : '#333',
+                color: autoOrbit ? '#000' : '#ccc',
+              }}
+            >{autoOrbit ? 'auto-orbit ON' : 'auto-orbit OFF'}</button>
+            <button onClick={onClearPivot} style={smallBtn()}>clear</button>
+          </div>
+        </>
+      ) : (
+        <div style={{ color: '#444' }}>— right-click terrain —</div>
+      )}
+    </div>
+  )
+}
+
+function smallBtn() {
+  return {
+    background: '#333',
+    color: '#ccc',
+    border: 'none',
+    borderRadius: 3,
+    padding: '2px 8px',
+    fontSize: 10,
+    fontFamily: 'monospace',
+    cursor: 'pointer',
+    marginTop: 4,
+  }
+}
+
 // ─── laser legend ───────────────────────────────────────────────────
 
 function LaserLegend({ visible }) {
@@ -390,6 +510,15 @@ export default function TerrainEngine({ className, style }) {
   const handleHeightmapLoaded = useCallback((hm, name) => {
     setHeightmap(hm)
     setLocationName(name)
+  }, [])
+
+  // tools state
+  const [measure, setMeasure] = useState(null)        // last measurement
+  const [orbitTarget, setOrbitTarget] = useState(null) // [x, y, z] | null
+  const [autoOrbit, setAutoOrbit] = useState(false)
+  const handleMeasure = useCallback((d) => setMeasure(d), [])
+  const handleOrbitPivot = useCallback((pt) => {
+    setOrbitTarget([pt.x, pt.y, pt.z])
   }, [])
 
   const controlsRef = useRef()
@@ -508,12 +637,23 @@ export default function TerrainEngine({ className, style }) {
                 ref={controlsRef}
                 enableDamping dampingFactor={0.08}
                 minDistance={3} maxDistance={50}
-                target={[0, targetY, 0]}
+                target={orbitTarget ?? [0, targetY, 0]}
+                enabled={!autoOrbit}
               />
               <OrbitReadout
                 controlsRef={controlsRef}
                 onUpdate={handleOrbitUpdate}
                 radius={TERRAIN_RADIUS}
+              />
+              <AutoOrbit
+                active={autoOrbit}
+                target={orbitTarget ?? [0, targetY, 0]}
+              />
+              <TerrainTools
+                terrainParams={terrainParams}
+                enabled={true}
+                onMeasureUpdate={handleMeasure}
+                onOrbitPivot={handleOrbitPivot}
               />
             </>
           ) : (
@@ -540,6 +680,21 @@ export default function TerrainEngine({ className, style }) {
         onHeightmapLoaded={handleHeightmapLoaded}
         heightmapInfo={heightmap ? { name: locationName } : null}
       />
+      {viewMode === 'orbit' && (
+        <ToolsPanel
+          measure={measure}
+          orbitTarget={orbitTarget}
+          autoOrbit={autoOrbit}
+          onToggleAutoOrbit={() => setAutoOrbit(v => !v)}
+          onClearPivot={() => { setOrbitTarget(null); setAutoOrbit(false) }}
+          onClearMeasurements={() => {
+            setMeasure(null)
+            // tell tools to clear by simulating M key
+            const evt = new KeyboardEvent('keydown', { code: 'KeyM' })
+            window.dispatchEvent(evt)
+          }}
+        />
+      )}
       {viewMode === 'orbit' && <OrbitPanel data={orbitData} />}
       {viewMode === 'walker' && <WalkerPanel data={walkerData} locked={pointerLocked} />}
       <LaserLegend visible={params.showLasers} />
