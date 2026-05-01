@@ -173,6 +173,48 @@ export async function buildHeightmap(lat, lng, zoom, token) {
   }
 }
 
+// ─── stitched satellite imagery ──────────────────────────────────
+
+/**
+ * Fetch and stitch a 3x3 grid of Mapbox satellite tiles centered on
+ * (lat, lng) at the given zoom.  Returns a Canvas suitable for
+ * Three.js CanvasTexture.
+ */
+export async function buildSatelliteCanvas(lat, lng, zoom, token) {
+  if (!token) throw new Error('Missing Mapbox token')
+
+  const c = lngLatToTile(lng, lat, zoom)
+  const half = Math.floor(GRID_SIDE / 2)
+
+  const tiles = []
+  for (let dy = -half; dy <= half; dy++) {
+    for (let dx = -half; dx <= half; dx++) {
+      tiles.push({
+        x: c.x + dx, y: c.y + dy,
+        gx: dx + half, gy: dy + half,
+      })
+    }
+  }
+
+  const images = await Promise.all(
+    tiles.map(t =>
+      loadImage(satelliteUrl(t.x, t.y, zoom, token))
+        .then(img => ({ ...t, img }))
+    ),
+  )
+
+  const W = TILE_SIZE * GRID_SIDE
+  const H = TILE_SIZE * GRID_SIDE
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+  for (const t of images) {
+    ctx.drawImage(t.img, t.gx * TILE_SIZE, t.gy * TILE_SIZE)
+  }
+  return canvas
+}
+
 // ─── preset locations for the UI ─────────────────────────────────
 
 export const PRESET_LOCATIONS = [
