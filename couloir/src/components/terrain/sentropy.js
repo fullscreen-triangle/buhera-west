@@ -41,7 +41,7 @@ export const DEFAULT_PARAMS = {
 
   // Thermodynamics
   T_0:           288.15,   // reference temperature (15 °C)
-  T_min:         240.0,    // K, cold-pole / stratosphere proxy
+  T_min:         220.0,    // K, covers Antarctic / 8000-m peak surfaces
   T_max:         320.0,    // K, hot-desert proxy
   alpha_thermal: 0.003,    // dry-air thermal expansion
 
@@ -84,9 +84,12 @@ export function classifyRGB(r, g, b) {
   const water = Math.min(1, blueness * 3)
               * (1 - Math.min(1, brightness * 1.2))
 
-  // Vegetation: green dominates red/blue
-  const greenness = Math.max(0, G - Math.max(R, B) * 0.85)
-  const veg = Math.min(1, greenness * 3)
+  // Vegetation: green strictly dominates BOTH red and blue.  Strict
+  // form is required so bright low-saturation pixels (snow) don’t leak
+  // a false green signal: for (220,230,235) the lax form `G - 0.85·max`
+  // yields a positive value, this strict form yields zero.
+  const greenness = Math.max(0, G - Math.max(R, B))
+  const veg = Math.min(1, greenness * 4)
 
   // Sand / desert: yellow-orange
   const yellowness = Math.max(0, (R + G) * 0.5 - B)
@@ -118,6 +121,11 @@ export function classifyRGB(r, g, b) {
  *   water  = 1 - l/n
  *   veg    = m / l
  * produce the intended values.
+ *
+ * (n, l, m) are continuous floats — Listing 9.1 of the paper reads them
+ * from a sampler texture as floats and uses ratios `l/n`, `m/l`, so
+ * rounding to integers throws away resolution at low n and forces snow
+ * pixels to decode as 100 % water.
  */
 function partitionFromSurface({
   elevation_m, lat,
@@ -130,22 +138,22 @@ function partitionFromSurface({
   if (T_surf < p.T_min) T_surf = p.T_min
   if (T_surf > p.T_max) T_surf = p.T_max
 
-  // Principal partition number (1..n_max), monotone in T_surf
-  const n_cont = (T_surf - p.T_min) / (p.T_max - p.T_min) * p.n_max
-  let n = Math.round(n_cont)
-  if (n < 1)        n = 1
+  // Principal partition coordinate, monotone in T_surf, continuous.
+  // Floor at 1 to keep `l/n` and `m/l` well-defined.
+  let n = (T_surf - p.T_min) / (p.T_max - p.T_min) * p.n_max
+  if (n < 1.0)      n = 1.0
   if (n > p.n_max)  n = p.n_max
 
-  // Angular partition — water content (snow counts as half-water)
+  // Angular coordinate — water content (snow counts as half-water).
   const water_frac = Math.min(1, water + 0.5 * snow)
-  let l = Math.round(n * (1 - water_frac))
-  if (l < 0)       l = 0
-  if (l > n - 1)   l = n - 1
+  let l = n * (1 - water_frac)
+  if (l < 0) l = 0
+  if (l > n) l = n
 
-  // Orientation — vegetation fraction within the rock structure
-  let m = Math.round(l * Math.min(1, veg))
-  if (m < 0)  m = 0
-  if (m > l)  m = l
+  // Orientation — vegetation fraction within the rock structure.
+  let m = l * Math.min(1, veg)
+  if (m < 0) m = 0
+  if (m > l) m = l
 
   // Chirality default
   const s = 0.5
@@ -320,6 +328,9 @@ export function terrainToAtmosphere(partition, params = {}) {
   return {
     Sk, St, Se, n_ref: nRef,
     width: W, height: H, layers: Z, dz,
+    sizeMeters: partition.sizeMeters,
+    centerLat:  partition.centerLat,
+    centerLng:  partition.centerLng,
     params: p,
   }
 }
