@@ -18,6 +18,10 @@
 # misc
 .DS_Store
 *.pem
+.env.local.example
+.env.local
+/three-geo-master
+/snippets
 
 # debug
 npm-debug.log*
