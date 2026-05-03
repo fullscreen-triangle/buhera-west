@@ -1,11 +1,14 @@
 /**
- * /sentropy-test — Pass 0 + Pass 3 verification page.
+ * /atmosphere — Categorical-partition atmospheric rendering.
  *
- * Pulls a Mapbox heightmap + satellite for a chosen preset, runs
+ * Pulls a Mapbox heightmap + satellite for a chosen preset and runs
  *   terrainPartitionFromTiles  →  terrainToAtmosphere
- * and reports partition + atmosphere stats with debug visualisations.
- * Then feeds the volume into the atmosphere ray-march shader and
- * renders a sky preview from a controllable camera.
+ * (Pass 0 of the street-view-rendering pipeline), then feeds the
+ * resulting (Sₖ, Sₜ, Sₑ, n_ref) volume into the Beer-Lambert ray-march
+ * shader (Pass 3) for a controllable sky-from-the-volume preview.
+ *
+ * Below the viewer: small debug visualisations of the partition field
+ * and atmospheric slices alongside numerical summaries and timing.
  */
 
 import Head from 'next/head'
@@ -186,15 +189,21 @@ function AtmosphereViewer({ volume }) {
   useEffect(() => {
     if (!volume || !containerRef.current) return
 
-    const W = 720, H = 405
+    const W = 1440, H = 810
     const renderer = new THREE.WebGLRenderer({
       antialias: false, preserveDrawingBuffer: false,
     })
-    renderer.setSize(W, H)
+    renderer.setSize(W, H, false)        // false = don't touch CSS sizing
     renderer.setPixelRatio(1)
 
+    // Display the canvas full-width while keeping intrinsic 16:9 ratio.
+    const dom = renderer.domElement
+    dom.style.width  = '100%'
+    dom.style.height = 'auto'
+    dom.style.display = 'block'
+
     containerRef.current.innerHTML = ''
-    containerRef.current.appendChild(renderer.domElement)
+    containerRef.current.appendChild(dom)
 
     const scene = new THREE.Scene()
     const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
@@ -320,7 +329,7 @@ function Slider({ label, value, min, max, step, onChange }) {
 
 // ─── page ───────────────────────────────────────────────────────
 
-export default function SEntropyTestPage() {
+export default function AtmospherePage() {
   const [presetIdx, setPresetIdx] = useState(0)
   const [zoom, setZoom] = useState(PRESET_LOCATIONS[0].zoom)
   const [resolution, setResolution] = useState(256)
@@ -413,12 +422,14 @@ export default function SEntropyTestPage() {
 
   return (
     <>
-      <Head><title>S-Entropy Pass 0 Test</title></Head>
+      <Head><title>Atmosphere — Categorical Partition Rendering</title></Head>
       <div style={S.page}>
-        <h1 style={S.h1}>S-Entropy Pass 0 — terrain → atmosphere</h1>
+        <h1 style={S.h1}>Atmosphere — categorical partition rendering</h1>
         <p style={S.subtitle}>
-          Implements Section 3 of <code>street-view-rendering.tex</code>:
-          DEM + satellite → (n,l,m,s) → atmospheric (S<sub>k</sub>, S<sub>t</sub>, S<sub>e</sub>, n<sub>ref</sub>).
+          Sky and aerial perspective derived from terrain-coupled S-entropy
+          (Section 3 + 6 of <code>street-view-rendering.tex</code>):
+          DEM + satellite → (n,l,m,s) → atmospheric volume → Beer-Lambert
+          Rayleigh + Mie ray march.  No artist parameters, no sky textures.
         </p>
 
         <div style={S.controls}>
@@ -472,6 +483,8 @@ export default function SEntropyTestPage() {
 
         <div style={S.status}>{status}</div>
 
+        <AtmosphereViewer volume={volume} />
+
         <div style={S.canvasGrid}>
           <Panel title="Satellite (input)" canvasRef={satRef} />
           <Panel title="Partition field (n,l,m → false colour)" canvasRef={partRef} />
@@ -486,8 +499,6 @@ export default function SEntropyTestPage() {
             subtitle={highRange && fmtHigh(highRange)}
           />
         </div>
-
-        <AtmosphereViewer volume={volume} />
 
         {timing && (
           <div style={S.section}>
@@ -532,7 +543,8 @@ function fmtHigh(r) {
   return `Sk [${f(r.min)} – ${f(r.max)}]`
 }
 
-SEntropyTestPage.getLayout = (page) => page
+// Default layout (navbar + footer from _app.js) is applied — keep this
+// page consistent with the other navbar entries instead of full-screen.
 
 // ─── styles ─────────────────────────────────────────────────────
 
@@ -565,7 +577,7 @@ const S = {
 
   // atmosphere viewer
   viewerWrap:    { background: '#0a0a10', border: '1px solid #20202a', padding: 12, marginBottom: 12 },
-  viewerCanvas:  { width: '100%', maxWidth: 720, marginTop: 8, background: '#000' },
+  viewerCanvas:  { width: '100%', marginTop: 8, background: '#000' },
   viewerInfo:    { fontSize: 10, color: '#666', marginTop: 6 },
   viewerGroup:   { marginTop: 10, paddingTop: 8, borderTop: '1px dashed #20202a' },
   lblTitle:      { fontSize: 10, color: '#58E6D9', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
