@@ -218,6 +218,7 @@ export async function buildSatelliteCanvas(lat, lng, zoom, token) {
 // ─── preset locations for the UI ─────────────────────────────────
 
 export const PRESET_LOCATIONS = [
+  { name: 'Berlin Olympiastadion', lat: 52.5145, lng:  13.2395, zoom: 14 },
   { name: 'Buhera West',  lat: -19.2608, lng:  31.4995, zoom: 12 },
   { name: 'Mt. Everest',  lat:  27.9881, lng:  86.9250, zoom: 12 },
   { name: 'Grand Canyon', lat:  36.0544, lng: -112.2401, zoom: 12 },

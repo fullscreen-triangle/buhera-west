@@ -24,6 +24,7 @@ import DirectionalLasers from './DirectionalLasers'
 import WalkerController from './WalkerController'
 import LocationPanel from './LocationPanel'
 import TerrainTools from './TerrainTools'
+import TerrainStadium from './TerrainStadium'
 
 const TERRAIN_RADIUS = 10
 
@@ -243,6 +244,7 @@ function HUD({ params, onChange, viewMode, onToggleView, dimmed }) {
       {slider('Detail', 'segments', 64, 1024, 64)}
       {toggle('Wireframe', 'wireframe')}
       {toggle('Lasers', 'showLasers')}
+      {toggle('Stadium', 'showStadium')}
     </div>
   )
 }
@@ -495,6 +497,7 @@ export default function TerrainEngine({ className, style }) {
     segments: 512,
     wireframe: false,
     showLasers: true,
+    showStadium: true,
   })
 
   const [viewMode, setViewMode] = useState('orbit') // 'orbit' | 'walker'
@@ -505,10 +508,12 @@ export default function TerrainEngine({ className, style }) {
   // real-world terrain state
   const [source, setSource] = useState('procedural') // 'procedural' | 'real'
   const [heightmap, setHeightmap] = useState(null)   // { data, width, height, ... }
+  const [satellite, setSatellite] = useState(null)   // HTMLCanvasElement
   const [locationName, setLocationName] = useState(null)
 
-  const handleHeightmapLoaded = useCallback((hm, name) => {
+  const handleHeightmapLoaded = useCallback((hm, sat, name) => {
     setHeightmap(hm)
+    setSatellite(sat ?? null)
     setLocationName(name)
   }, [])
 
@@ -600,6 +605,17 @@ export default function TerrainEngine({ className, style }) {
         dpr={[1, 2]}
       >
         <Suspense fallback={null}>
+          {/* lighting for GLB models — terrain mesh uses its own shader */}
+          <ambientLight intensity={0.35} />
+          <directionalLight
+            position={[
+              Math.cos(params.sunAzimuth) * Math.cos(params.sunElevation) * 80,
+              Math.max(0.05, Math.sin(params.sunElevation)) * 80,
+              Math.sin(params.sunAzimuth) * Math.cos(params.sunElevation) * 80,
+            ]}
+            intensity={params.sunIntensity}
+            color={'#fff4e0'}
+          />
           <SkyDome
             sunElevation={params.sunElevation}
             sunIntensity={params.sunIntensity}
@@ -624,19 +640,28 @@ export default function TerrainEngine({ className, style }) {
             sunIntensity={params.sunIntensity}
             wireframe={params.wireframe}
             heightmap={source === 'real' ? heightmap : null}
+            satellite={source === 'real' ? satellite : null}
           />
           <DirectionalLasers
             radius={TERRAIN_RADIUS}
             amplitude={params.amplitude}
             visible={params.showLasers}
           />
+          {source === 'real' && heightmap && params.showStadium && (
+            <TerrainStadium
+              heightmap={heightmap}
+              terrainParams={terrainParams}
+              radius={TERRAIN_RADIUS}
+              realSpanMeters={290}
+            />
+          )}
 
           {viewMode === 'orbit' ? (
             <>
               <OrbitControls
                 ref={controlsRef}
                 enableDamping dampingFactor={0.08}
-                minDistance={3} maxDistance={50}
+                minDistance={0.3} maxDistance={50}
                 target={orbitTarget ?? [0, targetY, 0]}
                 enabled={!autoOrbit}
               />

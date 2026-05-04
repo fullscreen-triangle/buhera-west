@@ -24,6 +24,34 @@ function makePlaceholderTexture() {
   return tex
 }
 
+// 1×1 grey RGBA texture for procedural / no-satellite mode
+function makeSatPlaceholderTexture() {
+  const tex = new THREE.DataTexture(
+    new Uint8Array([128, 128, 128, 255]),
+    1, 1,
+    THREE.RGBAFormat,
+    THREE.UnsignedByteType,
+  )
+  tex.needsUpdate = true
+  return tex
+}
+
+// CanvasTexture wrapping a stitched satellite canvas.
+// flipY = false to match the heightmap DataTexture convention so the
+// shader can use one (vUv.x, 1 - vUv.y) flip for both.
+function makeSatelliteTexture(canvas) {
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.flipY = false
+  tex.minFilter = THREE.LinearMipmapLinearFilter
+  tex.magFilter = THREE.LinearFilter
+  tex.wrapS = THREE.ClampToEdgeWrapping
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  tex.generateMipmaps = true
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.needsUpdate = true
+  return tex
+}
+
 function makeHeightmapTexture(hm) {
   const tex = new THREE.DataTexture(
     hm.data,
@@ -55,15 +83,19 @@ export default function TerrainMesh({
   animate = true,
   offset = [0, 0],
   heightmap = null,   // null | { data, width, height }
+  satellite = null,   // null | HTMLCanvasElement
 }) {
   const matRef = useRef()
   const hmTexRef = useRef()
+  const satTexRef = useRef()
   const { camera } = useThree()
 
   // create shader material once
   const material = useMemo(() => {
     const placeholder = makePlaceholderTexture()
+    const satPlaceholder = makeSatPlaceholderTexture()
     hmTexRef.current = placeholder
+    satTexRef.current = satPlaceholder
     const mat = new THREE.ShaderMaterial({
       vertexShader: terrainVertexShader,
       fragmentShader: terrainFragmentShader,
@@ -84,6 +116,9 @@ export default function TerrainMesh({
         u_radius:         { value: radius },
         u_useHeightmap:   { value: 0.0 },
         u_heightmap:      { value: placeholder },
+        u_useSatellite:   { value: 0.0 },
+        u_satellite:      { value: satPlaceholder },
+        u_satelliteMix:   { value: 1.0 },
       },
       side: THREE.DoubleSide,
       wireframe: false,
@@ -137,10 +172,29 @@ export default function TerrainMesh({
     }
   }, [heightmap])
 
+  // swap satellite texture when prop changes
+  useEffect(() => {
+    const m = matRef.current
+    if (!m) return
+
+    if (satellite) {
+      if (satTexRef.current && satTexRef.current.image?.width > 1) {
+        satTexRef.current.dispose()
+      }
+      const tex = makeSatelliteTexture(satellite)
+      satTexRef.current = tex
+      m.uniforms.u_satellite.value = tex
+      m.uniforms.u_useSatellite.value = 1.0
+    } else {
+      m.uniforms.u_useSatellite.value = 0.0
+    }
+  }, [satellite])
+
   // cleanup on unmount
   useEffect(() => {
     return () => {
       if (hmTexRef.current) hmTexRef.current.dispose()
+      if (satTexRef.current) satTexRef.current.dispose()
     }
   }, [])
 

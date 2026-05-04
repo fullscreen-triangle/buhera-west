@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { buildHeightmap, PRESET_LOCATIONS } from './mapbox'
+import { buildHeightmap, buildSatelliteCanvas, PRESET_LOCATIONS } from './mapbox'
 
 export default function LocationPanel({
   source,
@@ -42,12 +42,15 @@ export default function LocationPanel({
     }
     setStatus({ kind: 'loading' })
     try {
-      const hm = await buildHeightmap(lat, lng, zoom, token)
+      const [hm, sat] = await Promise.all([
+        buildHeightmap(lat, lng, zoom, token),
+        buildSatelliteCanvas(lat, lng, zoom, token),
+      ])
       setStatus({
         kind: 'ok',
         msg: `${(hm.sizeMeters / 1000).toFixed(1)} km across · ${Math.round(hm.minHeightM)}m → ${Math.round(hm.maxHeightM)}m`,
       })
-      onHeightmapLoaded(hm, locationName)
+      onHeightmapLoaded(hm, sat, locationName)
       onSourceChange('real')
     } catch (err) {
       setStatus({ kind: 'error', msg: err.message || 'Fetch failed' })

@@ -87,6 +87,9 @@ uniform float u_waterLevel;
 uniform float u_radius;           // clipping radius
 uniform float u_useHeightmap;     // 0 = procedural, 1 = real
 uniform sampler2D u_heightmap;    // Float32 heightmap texture
+uniform float u_useSatellite;     // 0 = classifier, 1 = satellite albedo
+uniform sampler2D u_satellite;    // RGB satellite texture
+uniform float u_satelliteMix;     // 0..1 blend with classifier (1 = pure satellite)
 
 varying vec3  vWorldPosition;
 varying vec3  vWorldNormal;
@@ -298,6 +301,17 @@ void main(){
     color = waterSurface(V);
   } else {
     Mat mat = classifyMaterial(vElevation, vSlope, moisture);
+    // Replace classifier albedo with the satellite image when active.
+    // Same UV flip as sampleHM in the vertex shader (heightmap row 0 = north).
+    if (u_useSatellite > 0.5) {
+      vec2 satUv = vec2(vUv.x, 1.0 - vUv.y);
+      vec3 satRgb = texture2D(u_satellite, satUv).rgb;
+      // The texture is sRGB-tagged so Three.js linearises on sample.
+      mat.albedo = mix(mat.albedo, satRgb, u_satelliteMix);
+      // Take roughness up a bit: photo data already encodes shading,
+      // so we want softer specular response on top.
+      mat.roughness = clamp(mat.roughness * 0.5 + 0.5, 0.2, 0.95);
+    }
     color = terrainLighting(mat, vWorldNormal, V);
   }
 
