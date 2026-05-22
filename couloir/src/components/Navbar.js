@@ -95,6 +95,7 @@ const Navbar = () => {
         <CustomLink className="mx-4" href="/projects" title="Projects" />
         <CustomLink className="mx-4" href="/articles" title="Articles" />
         <CustomLink className="ml-4" href="/atmosphere" title="Atmosphere" />
+        <CustomLink className="ml-4" href="/street-view" title="Street View" />
       </nav>
       <nav
         className="flex items-center justify-center flex-wrap lg:mt-2
@@ -182,6 +183,7 @@ const Navbar = () => {
         <CustomMobileLink toggle={handleClick} className="mx-4 lg:m-0 lg:my-2" href="/projects" title="Projects" />
         <CustomMobileLink toggle={handleClick} className="mx-4 lg:m-0 lg:my-2" href="/articles" title="Articles" />
         <CustomMobileLink toggle={handleClick} className="ml-4 lg:m-0 lg:my-2" href="/atmosphere" title="Atmosphere" />
+        <CustomMobileLink toggle={handleClick} className="ml-4 lg:m-0 lg:my-2" href="/street-view" title="Street View" />
       </nav>
       <nav
         className="flex items-center justify-center  mt-2

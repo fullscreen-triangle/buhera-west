@@ -122,7 +122,9 @@ void main(){
 
   if (u_useHeightmap > 0.5) {
     // ── real-world heightmap branch ──
-    eps = 0.05;
+    // Scale eps ~2 texels: keeps normals valid at both orbit (r=10) and
+    // street-view (r=13854) scales. Fixed 0.05 would be sub-texel at 14 km.
+    eps = u_radius * 0.005;
     h  = sampleHM(position.xy)                       * edgeFade;
     hR = sampleHM(position.xy + vec2(eps, 0.0))      * edgeFade;
     hU = sampleHM(position.xy + vec2(0.0, eps))      * edgeFade;
@@ -155,15 +157,19 @@ void main(){
   vElevation = h;
 
   vec3 displaced = position;
-  displaced.y += h * u_amplitude;
+  // Displace in local Z, which maps to world +Y after rotation={[-PI/2,0,0]}.
+  // Local Y maps to world -Z under that rotation, so Y-displacement would
+  // put terrain elevation in the wrong axis (walker would float km above terrain).
+  displaced.z += h * u_amplitude;
 
-  // normal via finite differences
-  vec3 tangent  = normalize(vec3(eps, (hR - h) * u_amplitude, 0.0));
-  vec3 binormal = normalize(vec3(0.0, (hU - h) * u_amplitude, eps));
+  // Normals: tangent in local X, binormal in local Y, height-change in local Z.
+  vec3 tangent  = normalize(vec3(eps, 0.0, (hR - h) * u_amplitude));
+  vec3 binormal = normalize(vec3(0.0, eps, (hU - h) * u_amplitude));
   vec3 n = normalize(cross(tangent, binormal));
 
   vWorldNormal = normalize(normalMatrix * n);
-  vSlope = 1.0 - abs(dot(n, vec3(0.0, 1.0, 0.0)));
+  // Flat terrain local normal is (0,0,1); slope = 0 when normal is along local +Z.
+  vSlope = 1.0 - abs(dot(n, vec3(0.0, 0.0, 1.0)));
 
   vec4 worldPos = modelMatrix * vec4(displaced, 1.0);
   vWorldPosition = worldPos.xyz;

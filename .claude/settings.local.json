@@ -15,7 +15,9 @@
       "Bash(ls \"c:\\\\Users\\\\kundai\\\\Documents\\\\geosciences\\\\buhera-west\\\\publication\\\\atmospheric-trajectory-completion\\\\README\"*)",
       "Bash(npm install mapbox-gl suncalc)",
       "Bash(npm install --legacy-peer-deps mapbox-gl suncalc)",
-      "Bash(npx next build)"
+      "Bash(npx next build)",
+      "Bash(node -e ' *)",
+      "PowerShell(netstat -ano)"
     ]
   }
 }
