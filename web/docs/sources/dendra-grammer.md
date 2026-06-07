@@ -155,20 +155,24 @@ buhera-west/
 └─ engine/                # Rust final compiler (cargo crate; native + wasm)
 ```
 
-*Open: clear the `web/` portfolio placeholder, or nest dendra under it?*
+**Decided:** reuse the portfolio template in `web/` (don't start from scratch). `_app.js` renders Navbar/Footer globally; the landing page stays (gets a CTA); add a `/sandbox` page + a Navbar link. The sandbox UI is the provided VS Code-style shell (`Sandbox.jsx`) with its `compileProject(files) → { html, code }` stub swapped for dendra's `compile()` (Compiled tab = token/AST/diagnostics; Scene tab = rendered passes, later).
 
 ---
 
 ## 9. Implementation roadmap (cross out as we go)
 
 ### M0 — Scaffolding
-- [ ] Decide repo layout (§8) and clear/relocate the `web/` placeholder
-- [ ] Create `spec/` and `spec/corpus/`
-- [ ] Add `dendra` package skeleton under `web/src/dendra/`
+- [x] ~~Repo layout (§8): **reuse the portfolio template** in `web/` (don't delete) — `_app.js` already gives global Navbar/Footer; add landing CTA + nav → `/sandbox`~~
+- [x] ~~Create `spec/` and `spec/corpus/`~~ → `spec/corpus/munich.dra`
+- [x] ~~`dendra` package skeleton under `web/src/dendra/`~~ → `token.ts`, `lexer.ts`, `index.ts`
+- [x] ~~Add deps to `web/package.json`: `lucide-react`, `typescript`, `@types/*`~~ → run `npm install` in `web/` before `npm run dev`
+- [x] ~~Save the VS Code sandbox template as `web/src/components/Sandbox.jsx`, `compileProject → dendra.compile()`~~
+- [x] ~~`web/src/pages/sandbox.js` renders `<Sandbox/>`; `/sandbox` nav link (desktop + mobile)~~
+- [ ] Landing CTA → `/sandbox` on `web/src/pages/index.js` (retheme later)
 
 ### M1 — Lexer (TS)
-- [ ] Token set (§2), comment stripping, units, numbers, idents
-- [ ] First corpus script `munich.dra` tokenises
+- [x] ~~Token set (§2), comment stripping, units, numbers, idents~~ → `web/src/dendra/{token,lexer}.ts`
+- [x] ~~First corpus script `munich.dra` tokenises~~ → `spec/corpus/munich.dra` via `web/src/dendra/index.ts` `compile()`
 
 ### M2 — Parser + AST (TS)
 - [ ] AST node per declaration (§3)

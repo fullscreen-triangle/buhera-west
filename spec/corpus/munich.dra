@@ -1,0 +1,13 @@
+# munich.dra — walk a real place, no jumps
+# Conformance corpus, example 01. See web/docs/sources/dendra-grammer.md.
+
+anchor   munich  = (48.137, 11.575) zoom 14     # observed final state: DEM + satellite
+field    surface = partition munich             # Pass 0a → (n, l, m, s)
+field    sky     = atmosphere surface           # Pass 0b → (Sk, St, Se, n_ref)
+
+observer you = body height 1.7m at spawn surface
+
+walk you to (320m, -110m) depth 20              # continuous trajectory — a result
+
+render passes [terrain, atmosphere, light]
+observe you: position, altitude, material
