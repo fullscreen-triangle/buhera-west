@@ -168,7 +168,9 @@ buhera-west/
 - [x] ~~Add deps to `web/package.json`: `lucide-react`, `typescript`, `@types/*`~~ → run `npm install` in `web/` before `npm run dev`
 - [x] ~~Save the VS Code sandbox template as `web/src/components/Sandbox.jsx`, `compileProject → dendra.compile()`~~
 - [x] ~~`web/src/pages/sandbox.js` renders `<Sandbox/>`; `/sandbox` nav link (desktop + mobile)~~
-- [ ] Landing CTA → `/sandbox` on `web/src/pages/index.js` (retheme later)
+- [x] ~~Minimal landing: static GLB via `model-viewer` (no rotation) + global navbar only~~ → `web/src/pages/index.js` (model: `/peirene_fountain_corinth_greece.glb`)
+- [x] ~~Full-page sandbox: `_app.js` hides site chrome on `/sandbox`; Sandbox root is `h-screen` (no panel)~~
+- [x] ~~Output tabs (Tempus-style): **Map** (real OSM map of the parsed `anchor`), **Charts** (token breakdown), **Console**, **Compiled**~~ — Map switches to the partition/terrain render at M6; anchor read by a temporary token-scan until the M2 parser lands
 
 ### M1 — Lexer (TS)
 - [x] ~~Token set (§2), comment stripping, units, numbers, idents~~ → `web/src/dendra/{token,lexer}.ts`
@@ -184,7 +186,8 @@ buhera-west/
 - [ ] Diagnostics with line/col
 
 ### M4 — Resolver: anchor + fields (Pass 0)
-- [ ] `anchor` → Mapbox DEM + satellite fetch
+> Map providers in `web/.env.local` (gitignored): `NEXT_PUBLIC_MAPBOX_TOKEN` (terrain-RGB DEM + satellite — Pass 0 source), `NEXT_PUBLIC_CESIUM_TOKEN` (future 3D terrain/tiles), `OPENWEATHERMAP_API_KEY` (server: real weather → atmosphere/weather pass), `TOMTOM_API_KEY` (server: traffic). Map tab already previews Mapbox satellite.
+- [~] Mapbox DEM (terrain-RGB) fetch + decode started → `web/src/dendra/terrain.ts` `sampleElevationProfile` (one-tile elevation transect; powers the Charts tab). TODO: 3×3 grid stitch + satellite for full Pass 0.
 - [ ] `partition` (Pass 0a) reimplemented from `sentropy.js`
 - [ ] `atmosphere` (Pass 0b) reimplemented
 - [ ] corpus: partition/atmosphere stats match expected JSON
@@ -199,8 +202,10 @@ buhera-west/
 - [ ] frame renders from a `.dra` script
 
 ### M7 — Webtool (playground)
-- [ ] Editor pane + live scene + diagnostics (Sandcastle-style)
-- [ ] COMPILE / RUN controls
+- [x] ~~Editor pane + file tree + diagnostics (Sandcastle-style), full page~~
+- [x] ~~COMPILE / RUN controls (two phases; no auto-run)~~ — COMPILE lexes/freezes, RUN resolves
+- [x] ~~Console tab = real build/run log~~ · ~~Charts tab = real elevation transect (Mapbox terrain)~~ · ~~Map tab = real satellite~~
+- [ ] Scene tab: terrain/atmosphere/light render (needs M6)
 
 ### M8 — Conformance corpus + harness
 - [ ] Harness runs all `spec/corpus/*.dra`, diffs against `*.expected.json`

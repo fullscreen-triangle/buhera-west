@@ -12,6 +12,8 @@ const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-mont" });
 
 export default function App({ Component, pageProps }) {
   const router = useRouter();
+  const isSandbox = router.pathname === "/sandbox"; // full-page IDE: no site chrome
+  const isHome = router.pathname === "/";            // minimal landing: navbar + model only
 
   return (
     <>
@@ -22,11 +24,11 @@ export default function App({ Component, pageProps }) {
       <main
         className={`${montserrat.variable} font-mont  bg-light dark:bg-dark w-full min-h-screen h-full`}
       >
-        <Navbar />
+        {!isSandbox && <Navbar />}
         <AnimatePresence initial={false} mode="wait">
           <Component key={router.asPath} {...pageProps} />
         </AnimatePresence>
-        <Footer />
+        {!isSandbox && !isHome && <Footer />}
       </main>
     </>
   );
