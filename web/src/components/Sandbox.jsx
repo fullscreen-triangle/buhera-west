@@ -1,17 +1,20 @@
 // Dendra Sandbox — full-page VS Code-style playground.
 // Two phases (like Tempus): COMPILE (lex/check, freeze) and RUN (resolve/render).
-// Output tabs: Map (real satellite), Charts (real elevation), Console (build/run log), Compiled (tokens).
+// Output tabs: Scene (3D wireframe) · Plan (top-down wireframe) · Satellite · Charts (elevation) · Console · Compiled.
 
-import React, { useState, useRef, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   Files, Search, GitBranch, Play, Blocks, Settings, ChevronRight, ChevronDown,
   X, Circle, FileCode2, FileJson, FileText, Folder, FolderOpen,
   Terminal as TerminalIcon, AlertCircle, Bell, Check,
-  Map as MapIcon, BarChart3, Code2, Trash2,
+  Map as MapIcon, Image as ImageIcon, Building2, BarChart3, Code2, Trash2,
 } from "lucide-react";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import { compile as dendraCompile } from "../dendra";
 import { sampleElevationProfile } from "../dendra/terrain";
+import { fetchCity } from "../dendra/buildings";
 
 // Mapbox token (NEXT_PUBLIC_ → inlined into the client bundle). Set in web/.env.local.
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -207,6 +210,126 @@ function MapView({ anchor }) {
   );
 }
 
+/* ---------- wireframe: buildings as partition-boundary edges ---------- */
+// push the 12 edge-segments of an extruded footprint (base ring + top ring + verticals)
+function pushBuildingEdges(arr, ring, h) {
+  const n = ring.length;
+  for (let i = 0; i < n; i++) {
+    const [x, z] = ring[i];
+    const [x2, z2] = ring[(i + 1) % n];
+    arr.push(x, 0, z, x2, 0, z2);   // base edge
+    arr.push(x, h, z, x2, h, z2);   // roof edge
+    arr.push(x, 0, z, x, h, z);     // vertical at vertex
+  }
+}
+
+function WireframeScene({ city }) {
+  const mountRef = useRef(null);
+  useEffect(() => {
+    if (!city || !mountRef.current) return;
+    const el = mountRef.current;
+    const W = el.clientWidth || 800, H = el.clientHeight || 500;
+    const R = city.radiusM;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x070d0b);
+    scene.fog = new THREE.Fog(0x070d0b, R * 1.2, R * 3.2);
+
+    const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 8000);
+    camera.position.set(R * 0.7, R * 0.55, R * 0.7);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setSize(W, H);
+    el.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0, 0);
+    controls.maxPolarAngle = Math.PI / 2 - 0.02; // stay above ground
+    controls.enableDamping = true;
+    controls.update();
+
+    scene.add(new THREE.GridHelper(2 * R, Math.max(10, Math.min(80, Math.round(R / 20))), 0x1a2924, 0x111c18));
+
+    const bPos = [];
+    for (const b of city.buildings) pushBuildingEdges(bPos, b.ring, b.height);
+    if (bPos.length) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(bPos, 3));
+      scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x58e6d9 })));
+    }
+
+    const rPos = [];
+    for (const r of city.roads)
+      for (let i = 0; i < r.pts.length - 1; i++) {
+        const [x, z] = r.pts[i], [x2, z2] = r.pts[i + 1];
+        rPos.push(x, 0.3, z, x2, 0.3, z2);
+      }
+    if (rPos.length) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(rPos, 3));
+      scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x5d736d })));
+    }
+
+    // observer — a 1.7 m marker at the anchor (the walking model's origin)
+    const obs = new THREE.LineSegments(
+      new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute([0, 0, 0, 0, 1.7, 0], 3)),
+      new THREE.LineBasicMaterial({ color: 0xf59e0b }));
+    scene.add(obs);
+
+    let raf;
+    const loop = () => { raf = requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); };
+    loop();
+    const onResize = () => {
+      const w = el.clientWidth, h = el.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+      controls.dispose(); renderer.dispose();
+      if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
+    };
+  }, [city]);
+
+  if (!city) return <Placeholder text="RUN to build the 3D wireframe from OSM buildings" />;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={mountRef} className="h-full w-full" />
+      <div className="pointer-events-none absolute left-2 top-2 rounded px-2 py-1 font-mono text-[10px]"
+        style={{ background: "rgba(0,0,0,.6)", color: theme.accentBright }}>
+        {city.count.buildings} buildings · drag to orbit · scroll to zoom
+      </div>
+    </div>
+  );
+}
+
+function PlanView({ city }) {
+  if (!city) return <Placeholder text="RUN to fetch buildings (OSM) — top-down plan" />;
+  const R = city.radiusM;
+  return (
+    <div className="relative h-full w-full" style={{ background: "#070d0b" }}>
+      <svg viewBox={`${-R} ${-R} ${2 * R} ${2 * R}`} preserveAspectRatio="xMidYMid meet" className="h-full w-full">
+        {city.roads.map((r, i) => (
+          <polyline key={"r" + i} points={r.pts.map((p) => `${p[0]},${p[1]}`).join(" ")}
+            fill="none" stroke="rgba(150,175,168,0.4)" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+        ))}
+        {city.buildings.map((b, i) => (
+          <polygon key={"b" + i} points={b.ring.map((p) => `${p[0]},${p[1]}`).join(" ")}
+            fill="rgba(88,230,217,0.05)" stroke="#58E6D9" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        ))}
+        <circle cx={0} cy={0} r={R * 0.012} fill="#f59e0b" />
+      </svg>
+      <div className="pointer-events-none absolute left-2 top-2 rounded px-2 py-1 font-mono text-[10px]"
+        style={{ background: "rgba(0,0,0,.6)", color: theme.accentBright }}>
+        {city.count.buildings} buildings · {city.count.roads} roads · {R} m radius
+      </div>
+    </div>
+  );
+}
+
 function ChartsView({ elev, running }) {
   if (running) return <Placeholder text="sampling terrain…" />;
   if (!elev) return <Placeholder text="press RUN to sample real elevation at the anchor" />;
@@ -261,7 +384,9 @@ function ConsoleView({ log, onClear }) {
 
 function OutputColumn({ tab, setTab, result, scene, log, running, onCompile, onRun, onClearLog }) {
   const tabs = [
-    { id: "map", label: "Map", Icon: MapIcon },
+    { id: "scene", label: "Scene", Icon: Building2 },
+    { id: "plan", label: "Plan", Icon: MapIcon },
+    { id: "satellite", label: "Satellite", Icon: ImageIcon },
     { id: "charts", label: "Charts", Icon: BarChart3 },
     { id: "console", label: "Console", Icon: TerminalIcon },
     { id: "compiled", label: "Compiled", Icon: Code2 },
@@ -293,7 +418,9 @@ function OutputColumn({ tab, setTab, result, scene, log, running, onCompile, onR
         </div>
       </div>
       <div className="min-h-0 flex-1">
-        {tab === "map" && <MapView anchor={result?.anchor} />}
+        {tab === "scene" && <WireframeScene city={scene?.city} />}
+        {tab === "plan" && <PlanView city={scene?.city} />}
+        {tab === "satellite" && <MapView anchor={result?.anchor} />}
         {tab === "charts" && <ChartsView elev={scene?.elev} running={running} />}
         {tab === "console" && <ConsoleView log={log} onClear={onClearLog} />}
         {tab === "compiled" && (
@@ -344,15 +471,26 @@ export default function Sandbox() {
     pushLog(`  lexed ${r.tokenCount} tokens · registry frozen`);
     if (!r.anchor) { setOutTab("console"); pushLog(`  no anchor declared — nothing to resolve`); return; }
     pushLog(`  anchor → ${r.anchor.lat}, ${r.anchor.lng} (zoom ${r.anchor.zoom})`);
-    if (!MAPBOX_TOKEN) { setOutTab("console"); pushLog(`  ✕ no NEXT_PUBLIC_MAPBOX_TOKEN — set web/.env.local and restart dev to sample terrain`); return; }
     setRunning(true);
-    setOutTab("charts");
+    setOutTab("console");
     try {
-      pushLog(`  fetching terrain-rgb…`);
-      const elev = await sampleElevationProfile(r.anchor, MAPBOX_TOKEN);
-      setScene({ elev });
-      pushLog(`  decoded ${elev.profile.length} samples · ${Math.round(elev.min)}–${Math.round(elev.max)} m (mean ${Math.round(elev.mean)}) · tile ${elev.z}/${elev.x}/${elev.y}`);
-      pushLog(`✓ scene resolved. terrain · atmosphere · light render — roadmap M6`);
+      // buildings (OSM Overpass — no key) + elevation (Mapbox — needs key), in parallel
+      pushLog(`  fetching OSM buildings + terrain…`);
+      const [cityRes, elevRes] = await Promise.allSettled([
+        fetchCity(r.anchor),
+        MAPBOX_TOKEN ? sampleElevationProfile(r.anchor, MAPBOX_TOKEN) : Promise.reject(new Error("no NEXT_PUBLIC_MAPBOX_TOKEN")),
+      ]);
+      const city = cityRes.status === "fulfilled" ? cityRes.value : null;
+      const elev = elevRes.status === "fulfilled" ? elevRes.value : null;
+
+      if (city) pushLog(`  OSM → ${city.count.buildings} buildings · ${city.count.roads} roads (${city.radiusM} m radius)`);
+      else pushLog(`  ✕ buildings: ${cityRes.reason?.message || "failed"}`);
+      if (elev) pushLog(`  elevation ${Math.round(elev.min)}–${Math.round(elev.max)} m (mean ${Math.round(elev.mean)}) · tile ${elev.z}/${elev.x}/${elev.y}`);
+      else pushLog(`  · elevation: ${elevRes.reason?.message || "skipped"}`);
+
+      setScene({ elev, city });
+      pushLog(`✓ scene resolved. wireframe = partition-edge trace · terrain/atmosphere → M6`);
+      setOutTab(city ? "scene" : elev ? "charts" : "console");
     } catch (e) {
       setOutTab("console");
       pushLog(`  ✕ error: ${e.message}`);

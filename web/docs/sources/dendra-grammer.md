@@ -198,14 +198,18 @@ buhera-west/
 - [ ] corpus: trajectory samples match
 
 ### M6 — Renderer (passes)
-- [ ] `terrain` + `atmosphere` + `light` passes (WebGL/WebGPU)
+- **Render style = wireframe (partition-edge trace), not photoreal.** Edges of buildings/roads *are* the categorical/partition boundaries; tracing them preserves information (photoreal streets is the physical face we skip for now). Real-time weather (OpenWeatherMap) → the `atmosphere`/`light` face; traffic (TomTom) → dynamics. Geometry accuracy comes from **vector data**, not real-time feeds.
+- [~] Scene geometry source → `web/src/dendra/buildings.ts` `fetchCity` (OSM Overpass, zero-key): building footprints + heights + roads, projected to local metres. TODO: multipolygon relations; terrain-height ground.
+- [x] ~~**Scene** (3D walkable wireframe, three.js: extruded footprint edges + roads + grid + observer marker, orbit)~~ · ~~**Plan** (top-down SVG wireframe)~~ — both in `Sandbox.jsx`
+- [ ] first-person / third-person walk camera + the walking GLB model (currently an orbit + 1.7 m observer marker)
+- [ ] `terrain` + `atmosphere` + `light` passes (WebGL/WebGPU) — real-time weather feeds atmosphere
 - [ ] frame renders from a `.dra` script
 
 ### M7 — Webtool (playground)
 - [x] ~~Editor pane + file tree + diagnostics (Sandcastle-style), full page~~
 - [x] ~~COMPILE / RUN controls (two phases; no auto-run)~~ — COMPILE lexes/freezes, RUN resolves
-- [x] ~~Console tab = real build/run log~~ · ~~Charts tab = real elevation transect (Mapbox terrain)~~ · ~~Map tab = real satellite~~
-- [ ] Scene tab: terrain/atmosphere/light render (needs M6)
+- [x] ~~Console tab = real build/run log~~ · ~~Charts tab = real elevation transect (Mapbox terrain)~~ · ~~Satellite tab = real satellite~~
+- [x] ~~**Scene** tab = 3D wireframe (OSM buildings)~~ · ~~**Plan** tab = top-down wireframe~~ (see M6)
 
 ### M8 — Conformance corpus + harness
 - [ ] Harness runs all `spec/corpus/*.dra`, diffs against `*.expected.json`
