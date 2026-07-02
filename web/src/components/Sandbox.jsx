@@ -10,7 +10,7 @@ import {
   Map as MapIcon, Image as ImageIcon, Building2, BarChart3, Code2, Trash2,
 } from "lucide-react";
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { compile as dendraCompile } from "../dendra";
 import { sampleElevationProfile } from "../dendra/terrain";
@@ -223,34 +223,38 @@ function pushBuildingEdges(arr, ring, h) {
   }
 }
 
+// tunables for the walking model / camera
+const WALK = 1.6, RUN = 4.8, TURN = 2.6, EYE = 1.62, GRAV = -18, JUMP_V = 6.2, CHAR_H = 1.7;
+const MODEL_URL = "/xbot_multiple_animations.glb";
+// pick a clip whose name contains any of `subs` (case-insensitive)
+const pickClip = (clips, subs, fallback) =>
+  clips.find((c) => subs.some((s) => c.name.toLowerCase().includes(s))) || fallback;
+
 function WireframeScene({ city }) {
   const mountRef = useRef(null);
+  const [status, setStatus] = useState("first-person · WASD move · Shift run · Space jump · V view");
+
   useEffect(() => {
     if (!city || !mountRef.current) return;
     const el = mountRef.current;
     const W = el.clientWidth || 800, H = el.clientHeight || 500;
     const R = city.radiusM;
+    let disposed = false;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x070d0b);
-    scene.fog = new THREE.Fog(0x070d0b, R * 1.2, R * 3.2);
+    scene.fog = new THREE.Fog(0x070d0b, R * 1.1, R * 3);
+    scene.add(new THREE.HemisphereLight(0x8fb8b0, 0x0a1512, 1.1));
+    const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(1, 2, 1); scene.add(key);
 
-    const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 8000);
-    camera.position.set(R * 0.7, R * 0.55, R * 0.7);
-
+    const camera = new THREE.PerspectiveCamera(65, W / H, 0.05, 8000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(W, H);
     el.appendChild(renderer.domElement);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 0, 0);
-    controls.maxPolarAngle = Math.PI / 2 - 0.02; // stay above ground
-    controls.enableDamping = true;
-    controls.update();
-
+    // ---- environment: the wireframe city (partition edges) ----
     scene.add(new THREE.GridHelper(2 * R, Math.max(10, Math.min(80, Math.round(R / 20))), 0x1a2924, 0x111c18));
-
     const bPos = [];
     for (const b of city.buildings) pushBuildingEdges(bPos, b.ring, b.height);
     if (bPos.length) {
@@ -258,7 +262,6 @@ function WireframeScene({ city }) {
       g.setAttribute("position", new THREE.Float32BufferAttribute(bPos, 3));
       scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x58e6d9 })));
     }
-
     const rPos = [];
     for (const r of city.roads)
       for (let i = 0; i < r.pts.length - 1; i++) {
@@ -271,15 +274,121 @@ function WireframeScene({ city }) {
       scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x5d736d })));
     }
 
-    // observer — a 1.7 m marker at the anchor (the walking model's origin)
-    const obs = new THREE.LineSegments(
-      new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute([0, 0, 0, 0, 1.7, 0], 3)),
-      new THREE.LineBasicMaterial({ color: 0xf59e0b }));
-    scene.add(obs);
+    // ---- the walking model (the observer is a *result*, not a game object) ----
+    const player = new THREE.Group();      // origin = feet; rotation.y = yaw
+    scene.add(player);
+    let yaw = 0, vy = 0, grounded = true;  // state
+    let mixer = null, actions = {}, current = null, modelReady = false;
+    let firstPerson = true;
 
+    const activate = (name) => {
+      const a = actions[name];
+      if (!a || a === current) return;
+      a.reset().fadeIn(0.18).play();
+      if (current) current.fadeOut(0.18);
+      current = a;
+    };
+
+    new GLTFLoader().load(
+      MODEL_URL,
+      (gltf) => {
+        if (disposed) return;
+        const model = gltf.scene;
+        model.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
+        // normalise to human height, feet on the ground, facing -Z (our forward)
+        const box = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3(); box.getSize(size);
+        model.scale.setScalar(CHAR_H / (size.y || 1));
+        const box2 = new THREE.Box3().setFromObject(model);
+        model.position.y -= box2.min.y;
+        model.rotation.y = Math.PI; // flip to -1 if the model moon-walks
+        player.add(model);
+
+        mixer = new THREE.AnimationMixer(model);
+        const clips = gltf.animations || [];
+        setStatus(`model loaded · clips: ${clips.map((c) => c.name).join(", ") || "none"}`);
+        const idle = pickClip(clips, ["idle", "stand", "tpose", "t-pose"], clips[0]);
+        const walk = pickClip(clips, ["walk"], clips[1] || clips[0]);
+        const run = pickClip(clips, ["run", "jog", "sprint"], walk);
+        const jump = pickClip(clips, ["jump", "leap"], idle);
+        if (idle) actions.idle = mixer.clipAction(idle);
+        if (walk) actions.walk = mixer.clipAction(walk);
+        if (run) actions.run = mixer.clipAction(run);
+        if (jump) actions.jump = mixer.clipAction(jump);
+        modelReady = true;
+        activate("idle");
+      },
+      undefined,
+      () => { if (!disposed) setStatus(`✕ could not load ${MODEL_URL} (check web/public)`); }
+    );
+
+    // ---- input ----
+    const keys = {};
+    const isTyping = (e) => e.target && (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT");
+    const onDown = (e) => {
+      if (isTyping(e)) return;
+      const k = e.key.toLowerCase();
+      keys[k] = true;
+      if (k === "v") { firstPerson = !firstPerson; setStatus(`${firstPerson ? "first" : "third"}-person · WASD move · Shift run · Space jump · V view`); }
+      if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault();
+    };
+    const onUp = (e) => { keys[e.key.toLowerCase()] = false; };
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+
+    // ---- loop ----
+    const clock = new THREE.Clock();
+    const camPos = new THREE.Vector3();
     let raf;
-    const loop = () => { raf = requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); };
+    const loop = () => {
+      raf = requestAnimationFrame(loop);
+      const dt = Math.min(0.05, clock.getDelta());
+
+      const fwd = keys["w"] || keys["arrowup"];
+      const back = keys["s"] || keys["arrowdown"];
+      const left = keys["a"] || keys["arrowleft"];
+      const right = keys["d"] || keys["arrowright"];
+      const running = keys["shift"];
+      if (left) yaw += TURN * dt;
+      if (right) yaw -= TURN * dt;
+      player.rotation.y = yaw;
+
+      const dir = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)); // local -Z
+      const speed = running ? RUN : WALK;
+      const moving = fwd || back;
+      if (fwd) player.position.addScaledVector(dir, speed * dt);
+      if (back) player.position.addScaledVector(dir, -speed * 0.6 * dt);
+
+      // gravity / jump
+      if (grounded && keys[" "]) { vy = JUMP_V; grounded = false; }
+      vy += GRAV * dt;
+      player.position.y += vy * dt;
+      if (player.position.y <= 0) { player.position.y = 0; vy = 0; grounded = true; }
+
+      // animation state machine
+      if (modelReady) {
+        if (!grounded) activate("jump");
+        else if (moving) activate(running ? "run" : "walk");
+        else activate("idle");
+        mixer.update(dt);
+      }
+
+      // camera follow
+      const head = player.position.clone().add(new THREE.Vector3(0, EYE, 0));
+      if (firstPerson) {
+        camera.position.copy(head);
+        camera.lookAt(head.clone().addScaledVector(dir, 2));
+      } else {
+        camPos.copy(player.position)
+          .addScaledVector(dir, -6)           // behind
+          .add(new THREE.Vector3(0, 3.4, 0)); // above
+        camera.position.lerp(camPos, 1 - Math.pow(0.001, dt));
+        camera.lookAt(player.position.clone().add(new THREE.Vector3(0, 1.4, 0)));
+      }
+      renderer.render(scene, camera);
+    };
     loop();
+
     const onResize = () => {
       const w = el.clientWidth, h = el.clientHeight;
       if (!w || !h) return;
@@ -287,9 +396,13 @@ function WireframeScene({ city }) {
     };
     window.addEventListener("resize", onResize);
     return () => {
+      disposed = true;
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
-      controls.dispose(); renderer.dispose();
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+      if (mixer) mixer.stopAllAction();
+      renderer.dispose();
       if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
     };
   }, [city]);
@@ -297,10 +410,10 @@ function WireframeScene({ city }) {
   if (!city) return <Placeholder text="RUN to build the 3D wireframe from OSM buildings" />;
   return (
     <div className="relative h-full w-full">
-      <div ref={mountRef} className="h-full w-full" />
+      <div ref={mountRef} className="h-full w-full" tabIndex={0} />
       <div className="pointer-events-none absolute left-2 top-2 rounded px-2 py-1 font-mono text-[10px]"
         style={{ background: "rgba(0,0,0,.6)", color: theme.accentBright }}>
-        {city.count.buildings} buildings · drag to orbit · scroll to zoom
+        {city.count.buildings} buildings · {status}
       </div>
     </div>
   );

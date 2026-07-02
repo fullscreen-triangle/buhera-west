@@ -200,8 +200,9 @@ buhera-west/
 ### M6 — Renderer (passes)
 - **Render style = wireframe (partition-edge trace), not photoreal.** Edges of buildings/roads *are* the categorical/partition boundaries; tracing them preserves information (photoreal streets is the physical face we skip for now). Real-time weather (OpenWeatherMap) → the `atmosphere`/`light` face; traffic (TomTom) → dynamics. Geometry accuracy comes from **vector data**, not real-time feeds.
 - [~] Scene geometry source → `web/src/dendra/buildings.ts` `fetchCity` (OSM Overpass, zero-key): building footprints + heights + roads, projected to local metres. TODO: multipolygon relations; terrain-height ground.
-- [x] ~~**Scene** (3D walkable wireframe, three.js: extruded footprint edges + roads + grid + observer marker, orbit)~~ · ~~**Plan** (top-down SVG wireframe)~~ — both in `Sandbox.jsx`
-- [ ] first-person / third-person walk camera + the walking GLB model (currently an orbit + 1.7 m observer marker)
+- [x] ~~**Scene** (3D walkable wireframe, three.js: extruded footprint edges + roads + grid)~~ · ~~**Plan** (top-down SVG wireframe)~~ — both in `Sandbox.jsx`
+- [x] ~~walkable character: `xbot_multiple_animations.glb` (GLTFLoader), WASD move · Shift run · Space jump · **V** first/third-person; idle/walk/run/jump crossfade; continuous — no jumps~~
+- [ ] continuous walk **resolved from a `.dra` `walk` trajectory** (backward-completion) instead of free WASD; building collision; ground = terrain height
 - [ ] `terrain` + `atmosphere` + `light` passes (WebGL/WebGPU) — real-time weather feeds atmosphere
 - [ ] frame renders from a `.dra` script
 
