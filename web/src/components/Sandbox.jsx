@@ -278,7 +278,7 @@ function WireframeScene({ city }) {
     const player = new THREE.Group();      // origin = feet; rotation.y = yaw
     scene.add(player);
     let yaw = 0, vy = 0, grounded = true;  // state
-    let mixer = null, actions = {}, current = null, modelReady = false;
+    let mixer = null, actions = {}, current = null, modelReady = false, playerModel = null;
     let firstPerson = true;
 
     const activate = (name) => {
@@ -295,18 +295,23 @@ function WireframeScene({ city }) {
         if (disposed) return;
         const model = gltf.scene;
         model.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
-        // normalise to human height, feet on the ground, facing -Z (our forward)
-        const box = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3(); box.getSize(size);
-        model.scale.setScalar(CHAR_H / (size.y || 1));
+        model.rotation.y = Math.PI;             // face -Z (our forward); flip to 0 if it moon-walks
+        player.add(model);                       // attach BEFORE measuring so world matrices are real
+
+        // normalise to human height (feet on the ground). Measure with matrices updated.
+        player.updateMatrixWorld(true);
+        const size = new THREE.Vector3();
+        new THREE.Box3().setFromObject(model).getSize(size);
+        const measured = size.y || 1;
+        model.scale.multiplyScalar(CHAR_H / measured);   // multiply (keeps any intrinsic scale)
+        player.updateMatrixWorld(true);
         const box2 = new THREE.Box3().setFromObject(model);
-        model.position.y -= box2.min.y;
-        model.rotation.y = Math.PI; // flip to -1 if the model moon-walks
-        player.add(model);
+        model.position.y -= box2.min.y;          // drop feet to y = 0
+        playerModel = model;
 
         mixer = new THREE.AnimationMixer(model);
         const clips = gltf.animations || [];
-        setStatus(`model loaded · clips: ${clips.map((c) => c.name).join(", ") || "none"}`);
+        setStatus(`model ${measured.toFixed(1)}→${CHAR_H} m · clips: ${clips.map((c) => c.name).join(", ") || "none"}`);
         const idle = pickClip(clips, ["idle", "stand", "tpose", "t-pose"], clips[0]);
         const walk = pickClip(clips, ["walk"], clips[1] || clips[0]);
         const run = pickClip(clips, ["run", "jog", "sprint"], walk);
@@ -373,7 +378,8 @@ function WireframeScene({ city }) {
         mixer.update(dt);
       }
 
-      // camera follow
+      // camera follow — hide your own body in first-person
+      if (playerModel) playerModel.visible = !firstPerson;
       const head = player.position.clone().add(new THREE.Vector3(0, EYE, 0));
       if (firstPerson) {
         camera.position.copy(head);
