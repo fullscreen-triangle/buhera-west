@@ -38,5 +38,7 @@ export const KEYWORDS: ReadonlySet<string> = new Set([
   // field kinds — faces of the same partition state at the anchor
   "partition", "atmosphere", "vegetation", "surface", "traffic", "activity",
   "body", "height", "at", "spawn", "include",
+  // regions: a drawn spatial selector + the verb to aggregate a field over it
+  "region", "poly", "draw", "measure",
   "to", "depth", "passes", "zoom",
 ]);

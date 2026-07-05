@@ -172,10 +172,92 @@ function compile(files, entry) {
   const composed = resolveImports(name, files).join("\n");
   const out = dendraCompile(composed);
   return {
-    name, ok: out.ok, code: out.dump,
+    name, ok: out.ok, code: out.dump, source: composed,
     anchor: extractAnchor(out.tokens),
     diagnostics: out.diagnostics,
     tokenCount: out.tokens.length - 1,
+  };
+}
+
+/* ---------- regions: drawn spatial selectors + measures ---------- */
+// A region is a hand-traced partition boundary; `measure` aggregates a field over it
+// (mean-recovery). Poly coords are local metres [x east, z north-negative], matching buildings.
+function pointInPoly(px, pz, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, zi] = poly[i], [xj, zj] = poly[j];
+    if (((zi > pz) !== (zj > pz)) && (px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+function polyArea(poly) {
+  let a = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++)
+    a += (poly[j][0] + poly[i][0]) * (poly[j][1] - poly[i][1]);
+  return Math.abs(a / 2);
+}
+const polyCentroid = (poly) => {
+  let x = 0, z = 0;
+  for (const [px, pz] of poly) { x += px; z += pz; }
+  return [x / poly.length, z / poly.length];
+};
+const segLen = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+
+// parse `region NAME = poly [ (xm,zm), … ]` blocks out of composed source
+function extractRegions(source) {
+  const out = [];
+  if (!source) return out;
+  const re = /region\s+(\w+)\s*=\s*poly\s*\[([\s\S]*?)\]/g;
+  let m;
+  while ((m = re.exec(source))) {
+    const poly = [];
+    const cre = /\(\s*(-?[\d.]+)\s*m?\s*,\s*(-?[\d.]+)\s*m?\s*\)/g;
+    let c;
+    while ((c = cre.exec(m[2]))) poly.push([parseFloat(c[1]), parseFloat(c[2])]);
+    if (poly.length >= 3) out.push({ name: m[1], poly });
+  }
+  return out;
+}
+
+// aggregate the real fields inside a region (area, elevation, built/green, an AQ proxy)
+function measureRegion(poly, { hf, city }) {
+  const areaM2 = polyArea(poly);
+  const xs = poly.map((p) => p[0]), zs = poly.map((p) => p[1]);
+  const [minX, maxX] = [Math.min(...xs), Math.max(...xs)];
+  const [minZ, maxZ] = [Math.min(...zs), Math.max(...zs)];
+
+  let eSum = 0, eN = 0, eMin = Infinity, eMax = -Infinity;
+  if (hf) {
+    const step = Math.max(3, Math.sqrt(areaM2) / 14);
+    for (let x = minX; x <= maxX; x += step)
+      for (let z = minZ; z <= maxZ; z += step) {
+        if (!pointInPoly(x, z, poly)) continue;
+        const m = sampleHeight(hf, x, z);
+        eSum += m; eN++; if (m < eMin) eMin = m; if (m > eMax) eMax = m;
+      }
+  }
+  const altMean = eN ? eSum / eN : (hf ? sampleHeight(hf, ...polyCentroid(poly)) : 0);
+
+  let buildings = 0, builtArea = 0, roadLenM = 0;
+  if (city) {
+    for (const b of city.buildings) {
+      const c = polyCentroid(b.ring);
+      if (pointInPoly(c[0], c[1], poly)) { buildings++; builtArea += polyArea(b.ring); }
+    }
+    for (const r of city.roads)
+      for (let i = 0; i < r.pts.length - 1; i++) {
+        const a = r.pts[i], b = r.pts[i + 1];
+        if (pointInPoly((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, poly)) roadLenM += segLen(a, b);
+      }
+  }
+  const builtFrac = areaM2 ? Math.min(1, builtArea / areaM2) : 0;
+  const greenFrac = Math.max(0, 1 - builtFrac);
+  const roadDensity = areaM2 ? roadLenM / areaM2 : 0; // m per m²
+  // air-quality proxy (a MODEL, not measured): worse with road density + built fraction
+  const aq = Math.max(0, Math.min(100, Math.round(100 - roadDensity * 1000 * 0.8 - builtFrac * 20)));
+  return {
+    areaM2, altMean, altMin: isFinite(eMin) ? eMin : altMean, altMax: isFinite(eMax) ? eMax : altMean,
+    buildings, roadLenM, greenFrac, aq,
   };
 }
 
@@ -311,7 +393,7 @@ const MODEL_URL = "/xbot_multiple_animations.glb";
 const pickClip = (clips, subs, fallback) =>
   clips.find((c) => subs.some((s) => c.name.toLowerCase().includes(s))) || fallback;
 
-function WireframeScene({ city, hf }) {
+function WireframeScene({ city, hf, regions }) {
   const mountRef = useRef(null);
   const [status, setStatus] = useState("first-person · WASD move · Shift run · Space jump · V view");
 
@@ -372,6 +454,24 @@ function WireframeScene({ city, hf }) {
         g.setAttribute("position", new THREE.Float32BufferAttribute(rPos, 3));
         scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x5d736d })));
       }
+    }
+
+    // ---- drawn regions, draped onto the terrain ----
+    if (regions) for (const rg of regions) {
+      const loop = [...rg.poly, rg.poly[0]], pos = [];
+      for (let i = 0; i < loop.length - 1; i++) {
+        const a = loop[i], b = loop[i + 1];
+        const steps = Math.max(1, Math.round(segLen(a, b) / 8));
+        for (let s = 0; s < steps; s++) {
+          const t0 = s / steps, t1 = (s + 1) / steps;
+          const x0 = a[0] + (b[0] - a[0]) * t0, z0 = a[1] + (b[1] - a[1]) * t0;
+          const x1 = a[0] + (b[0] - a[0]) * t1, z1 = a[1] + (b[1] - a[1]) * t1;
+          pos.push(x0, groundAt(x0, z0) + 1, z0, x1, groundAt(x1, z1) + 1, z1);
+        }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+      scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xf59e0b })));
     }
 
     // ---- the walking model (the observer is a *result*, not a game object) ----
@@ -516,7 +616,7 @@ function WireframeScene({ city, hf }) {
       renderer.dispose();
       if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
     };
-  }, [city, hf]);
+  }, [city, hf, regions]);
 
   if (!city && !hf) return <Placeholder text="RUN to build the walkable scene (terrain + OSM buildings)" />;
   return (
@@ -530,26 +630,118 @@ function WireframeScene({ city, hf }) {
   );
 }
 
-function PlanView({ city }) {
-  if (!city) return <Placeholder text="RUN to fetch buildings (OSM) — top-down plan" />;
-  const R = city.radiusM;
+const fmtArea = (m2) => (m2 >= 1e4 ? `${(m2 / 1e4).toFixed(2)} ha` : `${Math.round(m2)} m²`);
+
+function PlanView({ city, hf, regions, onAddRegion }) {
+  const svgRef = useRef(null);
+  const [drawing, setDrawing] = useState(false);
+  const [pts, setPts] = useState([]);       // in-progress vertices, local metres
+  const R = city?.radiusM ?? 300;
+
+  if (!city && !hf) return <Placeholder text="RUN to fetch the plan (terrain + OSM buildings)" />;
+
+  const toLocal = (e) => {
+    const svg = svgRef.current;
+    const p = svg.createSVGPoint();
+    p.x = e.clientX; p.y = e.clientY;
+    const l = p.matrixTransform(svg.getScreenCTM().inverse());
+    return [l.x, l.y];
+  };
+  const closeRegion = () => {
+    if (pts.length >= 3) onAddRegion?.(`zone${(regions?.length || 0) + 1}`, pts);
+    setPts([]); setDrawing(false);
+  };
+  const onClick = (e) => {
+    if (!drawing) return;
+    const [x, z] = toLocal(e);
+    // click near the first vertex → close
+    if (pts.length >= 3 && Math.hypot(x - pts[0][0], z - pts[0][1]) < R * 0.03) return closeRegion();
+    setPts((p) => [...p, [x, z]]);
+  };
+
   return (
     <div className="relative h-full w-full" style={{ background: "#070d0b" }}>
-      <svg viewBox={`${-R} ${-R} ${2 * R} ${2 * R}`} preserveAspectRatio="xMidYMid meet" className="h-full w-full">
-        {city.roads.map((r, i) => (
+      <svg ref={svgRef} viewBox={`${-R} ${-R} ${2 * R} ${2 * R}`} preserveAspectRatio="xMidYMid meet"
+        className="h-full w-full" style={{ cursor: drawing ? "crosshair" : "default" }}
+        onClick={onClick} onDoubleClick={() => drawing && closeRegion()}>
+        {city?.roads.map((r, i) => (
           <polyline key={"r" + i} points={r.pts.map((p) => `${p[0]},${p[1]}`).join(" ")}
             fill="none" stroke="rgba(150,175,168,0.4)" strokeWidth={2} vectorEffect="non-scaling-stroke" />
         ))}
-        {city.buildings.map((b, i) => (
+        {city?.buildings.map((b, i) => (
           <polygon key={"b" + i} points={b.ring.map((p) => `${p[0]},${p[1]}`).join(" ")}
             fill="rgba(88,230,217,0.05)" stroke="#58E6D9" strokeWidth={1} vectorEffect="non-scaling-stroke" />
         ))}
+
+        {/* declared regions */}
+        {regions?.map((rg, i) => {
+          const [cx, cz] = polyCentroid(rg.poly);
+          return (
+            <g key={"reg" + i}>
+              <polygon points={rg.poly.map((p) => `${p[0]},${p[1]}`).join(" ")}
+                fill="rgba(245,158,11,0.12)" stroke="#f59e0b" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+              <text x={cx} y={cz} fill="#ffd899" fontSize={R * 0.05} textAnchor="middle"
+                style={{ fontFamily: "monospace" }}>{rg.name}</text>
+            </g>
+          );
+        })}
+
+        {/* in-progress drawing */}
+        {pts.length > 0 && (
+          <polyline points={pts.map((p) => `${p[0]},${p[1]}`).join(" ")}
+            fill="rgba(88,230,217,0.08)" stroke="#58E6D9" strokeWidth={1.5} vectorEffect="non-scaling-stroke"
+            strokeDasharray="4 3" />
+        )}
+        {pts.map((p, i) => (
+          <circle key={"v" + i} cx={p[0]} cy={p[1]} r={R * (i === 0 ? 0.02 : 0.014)}
+            fill={i === 0 ? "#58E6D9" : "#9fe8df"} />
+        ))}
         <circle cx={0} cy={0} r={R * 0.012} fill="#f59e0b" />
       </svg>
+
+      {/* toolbar */}
+      <div className="absolute right-2 top-2 flex gap-1.5">
+        {!drawing ? (
+          <button onClick={() => setDrawing(true)}
+            className="rounded px-2.5 py-1 font-mono text-[11px]"
+            style={{ border: `1px solid ${theme.accentBright}55`, color: theme.accentBright, background: "rgba(0,0,0,.5)" }}>
+            ✏ draw region
+          </button>
+        ) : (
+          <>
+            <button onClick={closeRegion} disabled={pts.length < 3}
+              className="rounded px-2.5 py-1 font-mono text-[11px] font-bold"
+              style={{ background: pts.length < 3 ? "#1a2a26" : theme.accentBright, color: pts.length < 3 ? "#557" : "#03100e" }}>
+              finish ({pts.length})
+            </button>
+            <button onClick={() => { setPts([]); setDrawing(false); }}
+              className="rounded px-2.5 py-1 font-mono text-[11px]" style={{ color: theme.tabFg, background: "rgba(0,0,0,.5)" }}>
+              cancel
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* status / measures */}
       <div className="pointer-events-none absolute left-2 top-2 rounded px-2 py-1 font-mono text-[10px]"
         style={{ background: "rgba(0,0,0,.6)", color: theme.accentBright }}>
-        {city.count.buildings} buildings · {city.count.roads} roads · {R} m radius
+        {drawing ? "click to add vertices · click first point or double-click to close"
+          : `${city ? `${city.count.buildings} buildings · ` : ""}${R} m radius`}
       </div>
+      {regions?.length > 0 && (
+        <div className="absolute bottom-2 left-2 max-h-[45%] overflow-y-auto rounded p-2 font-mono text-[10px]"
+          style={{ background: "rgba(0,0,0,.72)", color: theme.editorFg, border: `1px solid ${theme.border}` }}>
+          {regions.map((rg, i) => (
+            <div key={i} className="mb-1 leading-relaxed">
+              <span style={{ color: "#f59e0b" }}>{rg.name}</span>{"  "}
+              {fmtArea(rg.measures.areaM2)} · {rg.measures.buildings} bldg · {Math.round(rg.measures.roadLenM)} m road ·
+              green {Math.round(rg.measures.greenFrac * 100)}% · alt {Math.round(rg.measures.altMean)} m ·
+              <span style={{ color: rg.measures.aq > 60 ? "#34d399" : rg.measures.aq > 35 ? "#ffd899" : "#f48771" }}> AQ {rg.measures.aq}</span>
+            </div>
+          ))}
+          <div style={{ color: theme.tabFg, opacity: 0.7 }}>AQ = road-density proxy (a model, not measured)</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -606,7 +798,7 @@ function ConsoleView({ log, onClear }) {
   );
 }
 
-function OutputColumn({ tab, setTab, result, scene, log, running, onCompile, onRun, onClearLog }) {
+function OutputColumn({ tab, setTab, result, scene, log, running, onCompile, onRun, onClearLog, onAddRegion }) {
   const tabs = [
     { id: "scene", label: "Scene", Icon: Building2 },
     { id: "plan", label: "Plan", Icon: MapIcon },
@@ -642,8 +834,8 @@ function OutputColumn({ tab, setTab, result, scene, log, running, onCompile, onR
         </div>
       </div>
       <div className="min-h-0 flex-1">
-        {tab === "scene" && <WireframeScene city={scene?.city} hf={scene?.hf} />}
-        {tab === "plan" && <PlanView city={scene?.city} />}
+        {tab === "scene" && <WireframeScene city={scene?.city} hf={scene?.hf} regions={scene?.regions} />}
+        {tab === "plan" && <PlanView city={scene?.city} hf={scene?.hf} regions={scene?.regions} onAddRegion={onAddRegion} />}
         {tab === "satellite" && <MapView anchor={result?.anchor} />}
         {tab === "charts" && <ChartsView elev={scene?.elev} running={running} />}
         {tab === "console" && <ConsoleView log={log} onClear={onClearLog} />}
@@ -722,8 +914,13 @@ export default function Sandbox() {
       else pushLog(`  ✕ terrain: ${hfRes.reason?.message || "failed"}`);
       if (elev) pushLog(`  elevation ${Math.round(elev.min)}–${Math.round(elev.max)} m (mean ${Math.round(elev.mean)})`);
 
-      setScene({ elev, city, hf });
-      pushLog(`✓ scene resolved. walker stands on real terrain · other fields → next layers`);
+      // regions: reconstruct from the composed source, measure each against the resolved fields
+      const regions = extractRegions(r.source).map((reg) => ({ ...reg, measures: measureRegion(reg.poly, { hf, city }) }));
+      for (const rg of regions)
+        pushLog(`  region ${rg.name}: ${fmtArea(rg.measures.areaM2)} · ${rg.measures.buildings} bldg · ${Math.round(rg.measures.roadLenM)} m road · green ${Math.round(rg.measures.greenFrac * 100)}% · AQ ${rg.measures.aq}`);
+
+      setScene({ elev, city, hf, regions });
+      pushLog(`✓ scene resolved. walker on real terrain${regions.length ? ` · ${regions.length} region(s) measured` : ""} · draw more in Plan`);
       setOutTab(city || hf ? "scene" : elev ? "charts" : "console");
     } catch (e) {
       setOutTab("console");
@@ -759,6 +956,19 @@ export default function Sandbox() {
     setFiles((prev) => { const next = structuredClone(prev); getNode(next, activePathArr).content = val; return next; });
     setDirty((prev) => new Set(prev).add(activeTab));
   }, [activePathArr, activeTab]);
+
+  // draw a region on the Plan → round-trip into the active .dra + measure it now
+  const onAddRegion = useCallback((name, poly) => {
+    const measures = measureRegion(poly, { hf: scene?.hf, city: scene?.city });
+    const coords = poly.map(([x, z]) => `(${Math.round(x)}m, ${Math.round(z)}m)`).join(", ");
+    const block = `\nregion ${name} = poly [ ${coords} ]\nmeasure ${name} : area, altitude, greenness, airquality\n`;
+    if (activePathArr) {
+      setFiles((prev) => { const next = structuredClone(prev); const node = getNode(next, activePathArr); if (node) node.content += block; return next; });
+      setDirty((prev) => new Set(prev).add(activeTab));
+    }
+    setScene((prev) => (prev ? { ...prev, regions: [...(prev.regions || []), { name, poly, measures }] } : prev));
+    pushLog(`✎ region ${name} → ${activeTab?.split("/").pop()} · ${fmtArea(measures.areaM2)} · ${measures.buildings} bldg · ${Math.round(measures.roadLenM)} m road · green ${Math.round(measures.greenFrac * 100)}% · AQ ${measures.aq}`);
+  }, [scene, activePathArr, activeTab, pushLog]);
 
   const activities = [
     { id: "files", Icon: Files, label: "Explorer" },
@@ -853,6 +1063,7 @@ export default function Sandbox() {
             tab={outTab} setTab={setOutTab}
             result={compiled} scene={scene} log={log} running={running}
             onCompile={doCompile} onRun={doRun} onClearLog={() => setLog([])}
+            onAddRegion={onAddRegion}
           />
         </div>
       </div>

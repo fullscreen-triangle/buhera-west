@@ -65,12 +65,20 @@ observe you: position, altitude, material
 ```ebnf
 program    = { import } { decl } ;
 import     = "import" string ;                     (* splice another module's decls *)
-decl       = anchor | field | observer | walk | render | observe | include ;
+decl       = anchor | field | region | observer | walk | render | observe | measure | include ;
 
 anchor     = "anchor"   ident "=" "(" number "," number ")" "zoom" integer ;
 field      = "field"    ident "=" field_op ;
 field_op   = field_kind ident ;
 field_kind = "partition" | "atmosphere" | "vegetation" | "surface" | "traffic" | "activity" ;
+
+(* a hand-traced spatial selector over the partition state — drawn on the Plan,
+   round-tripped into the script as local-metre coords. `draw` = interactive placeholder. *)
+region     = "region" ident "=" ( "draw" | "poly" "[" point { "," point } "]" ) ;
+point      = "(" length "," length ")" ;
+measure    = "measure" ident ":" agg { "," agg } ;   (* aggregate a field over a region *)
+agg        = "area" | "altitude" | "greenness" | "airquality" | ident ;
+
 observer   = "observer" ident "=" "body" "height" length "at" placement ;
 placement  = "spawn" ident
            | "(" length "," length ")" ;
@@ -200,6 +208,16 @@ buhera-west/
 - [x] ~~`field … = partition` (terrain, script 01) resolves to a walkable **displaced ground**; buildings/roads drape onto it; the walker stands on real relief~~
 - [ ] the other field kinds: `atmosphere` (OWM), `vegetation`, `surface`, `traffic` (TomTom), `activity` — scripts 02–06
 - [ ] `partition`/`atmosphere` numeric state reimplemented from `sentropy.js`; corpus stats match expected JSON
+
+### M4½ — Regions (drawn selectors) + measure
+> A region is a hand-traced partition boundary where code is awkward ("this grass patch", "that heavy street"). Three verbs: **measure** (aggregate → scalar; mean-recovery), **replace** (counterfactual: assert new state in the region, re-resolve dependents — the miracle principle, *not* forward simulation), **evolve** (time as a coordinate; model-based "live"). See memory `project-regions-and-time`.
+- [x] ~~lexer: `region poly draw measure` keywords~~
+- [x] ~~draw polygons on the **Plan** (click vertices, close) → round-trips a `region … = poly [ … ]` + `measure` block into the active `.dra`~~ (`Sandbox.jsx` PlanView)
+- [x] ~~`measure` computes real aggregates inside the region: area, mean elevation, building count, road length, green fraction, **AQ proxy** (road-density model — marked as not-measured)~~ → `measureRegion`
+- [x] ~~regions render in Plan (filled + label + measures panel) and drape onto terrain in the Scene~~
+- [ ] **replace** verb: override a field's value in a region → re-resolve dependents (street → bushes → new AQ)
+- [ ] **clock** + per-field time model (diurnal traffic) + a scrubber → the "live" map
+- [ ] real `airquality` / `traffic` fields (TomTom + a dispersion model) behind the proxy
 
 ### M5 — Observer + walk
 - [ ] `observer body … at spawn`
