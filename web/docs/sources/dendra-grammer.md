@@ -46,10 +46,12 @@ observe you: position, altitude, material
 
 ## 2. Lexical grammar (tokens)
 
-- keywords: `anchor field observer walk render observe partition atmosphere body height at spawn to depth passes zoom`
+- keywords: `import anchor field observer walk render observe partition atmosphere vegetation surface traffic activity body height at spawn include to depth passes zoom`
+- field kinds: `partition atmosphere vegetation surface traffic activity` — faces of the same partition state at the anchor (why they compose; see §0)
 - pass names: `terrain atmosphere weather position light`
 - observe fields: `position altitude material speed`
 - punctuation: `= ( ) [ ] , :`
+- `string` = `"` … `"` (import paths; no escapes in v0)
 - `length` = `number` followed by unit `m` | `km`
 - `integer` = digits ; `number` = optional `-`, digits, optional `.`digits, optional exponent
 - `ident` = letter `{ letter | digit | _ }`
@@ -61,21 +63,25 @@ observe you: position, altitude, material
 ## 3. Syntactic grammar (EBNF, v0)
 
 ```ebnf
-program    = { decl } ;
-decl       = anchor | field | observer | walk | render | observe ;
+program    = { import } { decl } ;
+import     = "import" string ;                     (* splice another module's decls *)
+decl       = anchor | field | observer | walk | render | observe | include ;
 
 anchor     = "anchor"   ident "=" "(" number "," number ")" "zoom" integer ;
 field      = "field"    ident "=" field_op ;
-field_op   = "partition"  ident
-           | "atmosphere" ident ;
+field_op   = field_kind ident ;
+field_kind = "partition" | "atmosphere" | "vegetation" | "surface" | "traffic" | "activity" ;
 observer   = "observer" ident "=" "body" "height" length "at" placement ;
 placement  = "spawn" ident
            | "(" length "," length ")" ;
 walk       = "walk" ident "to" "(" length "," length ")" [ "depth" integer ] ;
+include    = "include" "[" ident { "," ident } "]" ;   (* fields the walker measures against *)
 render     = "render" "passes" "[" pass { "," pass } "]" ;
 pass       = "terrain" | "atmosphere" | "weather" | "position" | "light" ;
 observe    = "observe" ident ":" obs_field { "," obs_field } ;
 obs_field  = "position" | "altitude" | "material" | "speed" ;
+
+string     = '"' { char - '"' } '"' ;
 
 length     = number ( "m" | "km" ) ;
 integer    = digit { digit } ;
@@ -174,7 +180,10 @@ buhera-west/
 
 ### M1 — Lexer (TS)
 - [x] ~~Token set (§2), comment stripping, units, numbers, idents~~ → `web/src/dendra/{token,lexer}.ts`
+- [x] ~~string literals + `import`/`include`/field-kind keywords~~ (enables the layered corpus)
 - [x] ~~First corpus script `munich.dra` tokenises~~ → `spec/corpus/munich.dra` via `web/src/dendra/index.ts` `compile()`
+
+**Layered corpus (playground design).** `scenes/01-terrain … 07-walker.dra`: each `import`s the previous and adds ONE field to the same anchor; RUN resolves the *union* (lazy — a field loads only when its decl is reached). The playground implements `import` as textual inclusion (`resolveImports` in `Sandbox.jsx`); the real module system is M2. Order: terrain → weather → vegetation → surface → traffic → activity → walker.
 
 ### M2 — Parser + AST (TS)
 - [ ] AST node per declaration (§3)
@@ -187,10 +196,10 @@ buhera-west/
 
 ### M4 — Resolver: anchor + fields (Pass 0)
 > Map providers in `web/.env.local` (gitignored): `NEXT_PUBLIC_MAPBOX_TOKEN` (terrain-RGB DEM + satellite — Pass 0 source), `NEXT_PUBLIC_CESIUM_TOKEN` (future 3D terrain/tiles), `OPENWEATHERMAP_API_KEY` (server: real weather → atmosphere/weather pass), `TOMTOM_API_KEY` (server: traffic). Map tab already previews Mapbox satellite.
-- [~] Mapbox DEM (terrain-RGB) fetch + decode started → `web/src/dendra/terrain.ts` `sampleElevationProfile` (one-tile elevation transect; powers the Charts tab). TODO: 3×3 grid stitch + satellite for full Pass 0.
-- [ ] `partition` (Pass 0a) reimplemented from `sentropy.js`
-- [ ] `atmosphere` (Pass 0b) reimplemented
-- [ ] corpus: partition/atmosphere stats match expected JSON
+- [x] ~~Mapbox DEM (terrain-RGB): `sampleElevationProfile` (1-tile transect → Charts) **and** `fetchHeightField` (3×3 stitch → real relief) + `sampleHeight` (bilinear)~~ → `web/src/dendra/terrain.ts`
+- [x] ~~`field … = partition` (terrain, script 01) resolves to a walkable **displaced ground**; buildings/roads drape onto it; the walker stands on real relief~~
+- [ ] the other field kinds: `atmosphere` (OWM), `vegetation`, `surface`, `traffic` (TomTom), `activity` — scripts 02–06
+- [ ] `partition`/`atmosphere` numeric state reimplemented from `sentropy.js`; corpus stats match expected JSON
 
 ### M5 — Observer + walk
 - [ ] `observer body … at spawn`
@@ -199,10 +208,10 @@ buhera-west/
 
 ### M6 — Renderer (passes)
 - **Render style = wireframe (partition-edge trace), not photoreal.** Edges of buildings/roads *are* the categorical/partition boundaries; tracing them preserves information (photoreal streets is the physical face we skip for now). Real-time weather (OpenWeatherMap) → the `atmosphere`/`light` face; traffic (TomTom) → dynamics. Geometry accuracy comes from **vector data**, not real-time feeds.
-- [~] Scene geometry source → `web/src/dendra/buildings.ts` `fetchCity` (OSM Overpass, zero-key): building footprints + heights + roads, projected to local metres. TODO: multipolygon relations; terrain-height ground.
-- [x] ~~**Scene** (3D walkable wireframe, three.js: extruded footprint edges + roads + grid)~~ · ~~**Plan** (top-down SVG wireframe)~~ — both in `Sandbox.jsx`
-- [x] ~~walkable character: `xbot_multiple_animations.glb` (GLTFLoader), WASD move · Shift run · Space jump · **V** first/third-person; idle/walk/run/jump crossfade; continuous — no jumps~~
-- [ ] continuous walk **resolved from a `.dra` `walk` trajectory** (backward-completion) instead of free WASD; building collision; ground = terrain height
+- [~] Scene geometry source → `web/src/dendra/buildings.ts` `fetchCity` (OSM Overpass, zero-key): building footprints + heights + roads, projected to local metres. TODO: multipolygon relations.
+- [x] ~~**Scene** (3D walkable wireframe on **real displaced terrain**; buildings/roads drape onto relief)~~ · ~~**Plan** (top-down SVG wireframe)~~ — both in `Sandbox.jsx`
+- [x] ~~walkable character: `xbot_multiple_animations.glb` (GLTFLoader), WASD move · Shift run · Space jump · **V** first/third-person; idle/walk/run/jump crossfade; walker follows terrain height; continuous — no jumps~~
+- [ ] continuous walk **resolved from a `.dra` `walk` trajectory** (backward-completion) instead of free WASD; building collision
 - [ ] `terrain` + `atmosphere` + `light` passes (WebGL/WebGPU) — real-time weather feeds atmosphere
 - [ ] frame renders from a `.dra` script
 

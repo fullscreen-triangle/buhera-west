@@ -6,6 +6,7 @@ export type TokKind =
   | "ident"   // user name OR closed-set word (pass / observe-field), resolved by the parser
   | "number"  // unit-less numeric literal
   | "length"  // numeric literal with a unit (m | km)
+  | "string"  // double-quoted string literal (import path)
   | "lparen" | "rparen" | "lbrack" | "rbrack"
   | "comma" | "colon" | "equals"
   | "eof";
@@ -32,7 +33,10 @@ export interface LexDiag {
 // (position, altitude, …) lex as `ident` and are validated in their syntactic
 // position by the parser/checker — keeps the keyword set small and unambiguous.
 export const KEYWORDS: ReadonlySet<string> = new Set([
+  "import",
   "anchor", "field", "observer", "walk", "render", "observe",
-  "partition", "atmosphere", "body", "height", "at", "spawn",
+  // field kinds — faces of the same partition state at the anchor
+  "partition", "atmosphere", "vegetation", "surface", "traffic", "activity",
+  "body", "height", "at", "spawn", "include",
   "to", "depth", "passes", "zoom",
 ]);

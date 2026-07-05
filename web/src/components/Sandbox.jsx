@@ -3,6 +3,7 @@
 // Output tabs: Scene (3D wireframe) · Plan (top-down wireframe) · Satellite · Charts (elevation) · Console · Compiled.
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import {
   Files, Search, GitBranch, Play, Blocks, Settings, ChevronRight, ChevronDown,
   X, Circle, FileCode2, FileJson, FileText, Folder, FolderOpen,
@@ -13,7 +14,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { compile as dendraCompile } from "../dendra";
-import { sampleElevationProfile } from "../dendra/terrain";
+import { sampleElevationProfile, fetchHeightField, sampleHeight } from "../dendra/terrain";
 import { fetchCity } from "../dendra/buildings";
 
 // Mapbox token (NEXT_PUBLIC_ → inlined into the client bundle). Set in web/.env.local.
@@ -36,29 +37,78 @@ const initialFiles = {
   scenes: {
     type: "folder",
     children: {
-      "scene.dra": {
+      // A layered corpus: each script imports the previous and adds ONE field.
+      // Same anchor throughout; RUN resolves the union — lazily, field by field.
+      "01-terrain.dra": {
         type: "file", lang: "dra",
-        content: `# scene.dra — a basic, detailed scene (street-level zoom)
-anchor   place   = (48.1374, 11.5755) zoom 17
-field    surface = partition place
-observer you     = body height 1.7m at spawn surface`,
+        content: `# 01 — terrain: the ground itself (height, water). Every field renders on this.
+anchor place = (48.1374, 11.5755) zoom 17
+field  ground = partition place
+render passes [terrain]
+observe place: altitude`,
+      },
+      "02-weather.dra": {
+        type: "file", lang: "dra",
+        content: `import "01-terrain.dra"
+# 02 — weather: pressure, wind, temperature, humidity (OpenWeatherMap).
+field sky = atmosphere place
+render passes [terrain, atmosphere]`,
+      },
+      "03-vegetation.dra": {
+        type: "file", lang: "dra",
+        content: `import "02-weather.dra"
+# 03 — vegetation: density, height; transpiration, photosynthesis rate.
+field flora = vegetation place
+render passes [terrain, atmosphere, vegetation]`,
+      },
+      "04-surface.dra": {
+        type: "file", lang: "dra",
+        content: `import "03-vegetation.dra"
+# 04 — surface material: asphalt / cobblestone / unpaved / path; pipes, cables.
+field skin = surface place
+render passes [terrain, vegetation, surface]`,
+      },
+      "05-traffic.dra": {
+        type: "file", lang: "dra",
+        content: `import "04-surface.dra"
+# 05 — traffic: flow, chokepoints, air quality, exhaust trails, tunnels (TomTom).
+field flow = traffic place
+render passes [terrain, surface, traffic]`,
+      },
+      "06-activity.dra": {
+        type: "file", lang: "dra",
+        content: `import "05-traffic.dra"
+# 06 — human activity: pedestrian density, market activity, rate of change.
+field life = activity place
+render passes [terrain, activity]`,
+      },
+      "07-walker.dra": {
+        type: "file", lang: "dra",
+        content: `import "06-activity.dra"
+# 07 — the walker: drop a human into the composed field-stack; include any subset.
+observer you = body height 1.7m at spawn ground
+walk you to (120m, -40m) depth 20
+include [ground, sky, flora, skin, flow, life]
+render passes [terrain, atmosphere, light]
+observe you: position, altitude, material`,
       },
     },
   },
   "README.md": {
     type: "file", lang: "md",
-    content: `# Dendra sandbox
+    content: `# Dendra sandbox — layered corpus
 
-Press COMPILE to lex/check (freezes the registry).
-Press RUN to resolve the scene.
+Seven scripts, each importing the previous and adding one **field** to the same
+anchor. COMPILE lexes/freezes; RUN resolves the *union* of fields present.
 
-Output:
-- Map — real satellite at the scene's anchor.
-- Charts — real elevation transect at the anchor (Mapbox terrain).
-- Console — the compile/run log.
-- Compiled — the dendra token stream (M1 lexer).
+  01 terrain → 02 weather → 03 vegetation → 04 surface
+     → 05 traffic → 06 activity → 07 walker
 
-Terrain + atmosphere rendering arrives at roadmap M6.`,
+Open a script and RUN it: 01 gives real terrain; 07 drops the walking model onto
+the composed stack. Each \`import\` splices the earlier fields in — a field's data
+is fetched only when its declaration is reached (lazy).
+
+Output tabs — Scene (3D walkable) · Plan (top-down) · Satellite · Charts · Console · Compiled.`,
   },
 };
 
@@ -79,20 +129,50 @@ function extractAnchor(tokens) {
   return null;
 }
 
-function compile(files) {
+// look up a .dra by basename — scenes/ folder first, then top level
+function readScene(files, name) {
+  const scenes = files.scenes?.children || {};
+  if (scenes[name]) return scenes[name].content;
+  if (files[name]) return files[name].content;
+  return null;
+}
+
+// resolve the import chain by textual inclusion (playground stand-in for the M2
+// module system): each `import "x.dra"` splices x (imports-first) ahead of the body,
+// so RUN resolves the *union* of fields — lazy, since a field's data loads only when
+// its declaration is present in the composed source.
+function resolveImports(name, files, seen = new Set(), out = []) {
+  if (seen.has(name)) return out;
+  seen.add(name);
+  const content = readScene(files, name);
+  if (content == null) { out.push(`# ✕ import not found: ${name}`); return out; }
+  const body = [];
+  for (const ln of content.split("\n")) {
+    const m = ln.match(/^\s*import\s+"([^"]+)"/);
+    if (m) resolveImports(m[1], files, seen, out);
+    else body.push(ln);
+  }
+  out.push(`# ── ${name} ──`, body.join("\n"));
+  return out;
+}
+
+// entry = the .dra to compile (active file basename); falls back to first .dra found.
+function compile(files, entry) {
   const sources = [];
   const walk = (tree) => {
     for (const [name, node] of Object.entries(tree)) {
       if (node.type === "folder") walk(node.children);
-      else if (name.endsWith(".dra")) sources.push({ name, content: node.content });
+      else if (name.endsWith(".dra")) sources.push(name);
     }
   };
   walk(files);
-  const main = sources[0];
-  if (!main) return { name: null, ok: false, code: "// add a .dra file under scenes/", anchor: null, diagnostics: [], tokenCount: 0 };
-  const out = dendraCompile(main.content);
+  const name = (entry && sources.includes(entry)) ? entry : sources[0];
+  if (!name) return { name: null, ok: false, code: "// add a .dra file under scenes/", anchor: null, diagnostics: [], tokenCount: 0 };
+
+  const composed = resolveImports(name, files).join("\n");
+  const out = dendraCompile(composed);
   return {
-    name: main.name, ok: out.ok, code: out.dump,
+    name, ok: out.ok, code: out.dump,
     anchor: extractAnchor(out.tokens),
     diagnostics: out.diagnostics,
     tokenCount: out.tokens.length - 1,
@@ -211,15 +291,16 @@ function MapView({ anchor }) {
 }
 
 /* ---------- wireframe: buildings as partition-boundary edges ---------- */
-// push the 12 edge-segments of an extruded footprint (base ring + top ring + verticals)
-function pushBuildingEdges(arr, ring, h) {
-  const n = ring.length;
+// push the edge-segments of an extruded footprint (base ring + roof ring + verticals),
+// sitting on ground height y0.
+function pushBuildingEdges(arr, ring, h, y0 = 0) {
+  const n = ring.length, top = y0 + h;
   for (let i = 0; i < n; i++) {
     const [x, z] = ring[i];
     const [x2, z2] = ring[(i + 1) % n];
-    arr.push(x, 0, z, x2, 0, z2);   // base edge
-    arr.push(x, h, z, x2, h, z2);   // roof edge
-    arr.push(x, 0, z, x, h, z);     // vertical at vertex
+    arr.push(x, y0, z, x2, y0, z2);   // base edge
+    arr.push(x, top, z, x2, top, z2); // roof edge
+    arr.push(x, y0, z, x, top, z);    // vertical at vertex
   }
 }
 
@@ -230,16 +311,20 @@ const MODEL_URL = "/xbot_multiple_animations.glb";
 const pickClip = (clips, subs, fallback) =>
   clips.find((c) => subs.some((s) => c.name.toLowerCase().includes(s))) || fallback;
 
-function WireframeScene({ city }) {
+function WireframeScene({ city, hf }) {
   const mountRef = useRef(null);
   const [status, setStatus] = useState("first-person · WASD move · Shift run · Space jump · V view");
 
   useEffect(() => {
-    if (!city || !mountRef.current) return;
+    if ((!city && !hf) || !mountRef.current) return;
     const el = mountRef.current;
     const W = el.clientWidth || 800, H = el.clientHeight || 500;
-    const R = city.radiusM;
+    const R = city?.radiusM ?? 300;
     let disposed = false;
+
+    // terrain: local ground height, relative to the anchor (datum = anchor elevation)
+    const datum = hf ? sampleHeight(hf, 0, 0) : 0;
+    const groundAt = (x, z) => (hf ? sampleHeight(hf, x, z) - datum : 0);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x070d0b);
@@ -253,25 +338,40 @@ function WireframeScene({ city }) {
     renderer.setSize(W, H);
     el.appendChild(renderer.domElement);
 
-    // ---- environment: the wireframe city (partition edges) ----
-    scene.add(new THREE.GridHelper(2 * R, Math.max(10, Math.min(80, Math.round(R / 20))), 0x1a2924, 0x111c18));
-    const bPos = [];
-    for (const b of city.buildings) pushBuildingEdges(bPos, b.ring, b.height);
-    if (bPos.length) {
-      const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.Float32BufferAttribute(bPos, 3));
-      scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x58e6d9 })));
-    }
-    const rPos = [];
-    for (const r of city.roads)
-      for (let i = 0; i < r.pts.length - 1; i++) {
-        const [x, z] = r.pts[i], [x2, z2] = r.pts[i + 1];
-        rPos.push(x, 0.3, z, x2, 0.3, z2);
+    // ---- terrain field (01): real relief as a displaced ground + faint wireframe ----
+    const EXT = 2.2 * R, SEG = 96;
+    const tgeo = new THREE.PlaneGeometry(EXT, EXT, SEG, SEG);
+    tgeo.rotateX(-Math.PI / 2); // into the XZ plane
+    const tp = tgeo.attributes.position;
+    for (let i = 0; i < tp.count; i++) tp.setY(i, groundAt(tp.getX(i), tp.getZ(i)));
+    tgeo.computeVertexNormals();
+    scene.add(new THREE.Mesh(tgeo, new THREE.MeshStandardMaterial({ color: 0x0e1a17, roughness: 1, metalness: 0, flatShading: true })));
+    scene.add(new THREE.LineSegments(new THREE.WireframeGeometry(tgeo),
+      new THREE.LineBasicMaterial({ color: 0x1f6f63, transparent: true, opacity: 0.22 })));
+
+    // ---- the wireframe city (partition edges), draped onto the terrain ----
+    if (city) {
+      const bPos = [];
+      for (const b of city.buildings) {
+        const c = b.ring[0] || [0, 0];       // sit the footprint on the ground at its first vertex
+        pushBuildingEdges(bPos, b.ring, b.height, groundAt(c[0], c[1]));
       }
-    if (rPos.length) {
-      const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.Float32BufferAttribute(rPos, 3));
-      scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x5d736d })));
+      if (bPos.length) {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.Float32BufferAttribute(bPos, 3));
+        scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x58e6d9 })));
+      }
+      const rPos = [];
+      for (const r of city.roads)
+        for (let i = 0; i < r.pts.length - 1; i++) {
+          const [x, z] = r.pts[i], [x2, z2] = r.pts[i + 1];
+          rPos.push(x, groundAt(x, z) + 0.3, z, x2, groundAt(x2, z2) + 0.3, z2);
+        }
+      if (rPos.length) {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.Float32BufferAttribute(rPos, 3));
+        scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x5d736d })));
+      }
     }
 
     // ---- the walking model (the observer is a *result*, not a game object) ----
@@ -364,11 +464,16 @@ function WireframeScene({ city }) {
       if (fwd) player.position.addScaledVector(dir, speed * dt);
       if (back) player.position.addScaledVector(dir, -speed * 0.6 * dt);
 
-      // gravity / jump
-      if (grounded && keys[" "]) { vy = JUMP_V; grounded = false; }
-      vy += GRAV * dt;
-      player.position.y += vy * dt;
-      if (player.position.y <= 0) { player.position.y = 0; vy = 0; grounded = true; }
+      // vertical: walk the terrain when grounded; ballistic arc while jumping
+      const groundY = groundAt(player.position.x, player.position.z);
+      if (grounded) {
+        player.position.y = groundY;
+        if (keys[" "]) { vy = JUMP_V; grounded = false; }
+      } else {
+        vy += GRAV * dt;
+        player.position.y += vy * dt;
+        if (player.position.y <= groundY) { player.position.y = groundY; vy = 0; grounded = true; }
+      }
 
       // animation state machine
       if (modelReady) {
@@ -411,15 +516,15 @@ function WireframeScene({ city }) {
       renderer.dispose();
       if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
     };
-  }, [city]);
+  }, [city, hf]);
 
-  if (!city) return <Placeholder text="RUN to build the 3D wireframe from OSM buildings" />;
+  if (!city && !hf) return <Placeholder text="RUN to build the walkable scene (terrain + OSM buildings)" />;
   return (
     <div className="relative h-full w-full">
       <div ref={mountRef} className="h-full w-full" tabIndex={0} />
       <div className="pointer-events-none absolute left-2 top-2 rounded px-2 py-1 font-mono text-[10px]"
         style={{ background: "rgba(0,0,0,.6)", color: theme.accentBright }}>
-        {city.count.buildings} buildings · {status}
+        {city ? `${city.count.buildings} buildings · ` : ""}{status}
       </div>
     </div>
   );
@@ -537,7 +642,7 @@ function OutputColumn({ tab, setTab, result, scene, log, running, onCompile, onR
         </div>
       </div>
       <div className="min-h-0 flex-1">
-        {tab === "scene" && <WireframeScene city={scene?.city} />}
+        {tab === "scene" && <WireframeScene city={scene?.city} hf={scene?.hf} />}
         {tab === "plan" && <PlanView city={scene?.city} />}
         {tab === "satellite" && <MapView anchor={result?.anchor} />}
         {tab === "charts" && <ChartsView elev={scene?.elev} running={running} />}
@@ -556,8 +661,8 @@ function OutputColumn({ tab, setTab, result, scene, log, running, onCompile, onR
 export default function Sandbox() {
   const [files, setFiles] = useState(initialFiles);
   const [expanded, setExpanded] = useState(new Set(["scenes"]));
-  const [openTabs, setOpenTabs] = useState([["scenes", "scene.dra"]]);
-  const [activeTab, setActiveTab] = useState("scenes/scene.dra");
+  const [openTabs, setOpenTabs] = useState([["scenes", "07-walker.dra"]]);
+  const [activeTab, setActiveTab] = useState("scenes/07-walker.dra");
   const [dirty, setDirty] = useState(new Set());
   const [cursor, setCursor] = useState({ ln: 1, col: 1 });
 
@@ -572,18 +677,24 @@ export default function Sandbox() {
 
   const pushLog = useCallback((...lines) => setLog((l) => [...l, ...lines]), []);
 
+  // entry = the active .dra (its imports resolve into it)
+  const entryOf = useCallback(() => {
+    const base = activeTab?.split("/").pop();
+    return base && base.endsWith(".dra") ? base : undefined;
+  }, [activeTab]);
+
   const doCompile = useCallback(() => {
-    const r = compile(files);
+    const r = compile(files, entryOf());
     setCompiled(r);
     setScene(null);
     setOutTab("console");
     pushLog(`$ dendra compile ${r.name ?? "(none)"}`);
     if (r.ok) pushLog(`✓ lexed ${r.tokenCount} tokens · 0 diagnostics · registry Γ frozen`);
     else { pushLog(`✕ ${r.diagnostics.length} diagnostic(s):`); r.diagnostics.forEach((d) => pushLog(`  ${d.line}:${d.col}  ${d.message}`)); }
-  }, [files, pushLog]);
+  }, [files, entryOf, pushLog]);
 
   const doRun = useCallback(async () => {
-    const r = compile(files);
+    const r = compile(files, entryOf());
     setCompiled(r);
     pushLog(`$ dendra run ${r.name ?? "(none)"}`);
     if (!r.ok) { setOutTab("console"); pushLog(`✕ compile failed — ${r.diagnostics.length} diagnostic(s)`); r.diagnostics.forEach((d) => pushLog(`  ${d.line}:${d.col}  ${d.message}`)); return; }
@@ -593,30 +704,34 @@ export default function Sandbox() {
     setRunning(true);
     setOutTab("console");
     try {
-      // buildings (OSM Overpass — no key) + elevation (Mapbox — needs key), in parallel
-      pushLog(`  fetching OSM buildings + terrain…`);
-      const [cityRes, elevRes] = await Promise.allSettled([
+      // Field resolution: buildings (OSM), elevation transect (Charts), heightfield
+      // (Scene ground) — all in parallel. Terrain (field 01) grounds every other field.
+      pushLog(`  resolving fields: terrain + buildings…`);
+      const [cityRes, elevRes, hfRes] = await Promise.allSettled([
         fetchCity(r.anchor),
-        MAPBOX_TOKEN ? sampleElevationProfile(r.anchor, MAPBOX_TOKEN) : Promise.reject(new Error("no NEXT_PUBLIC_MAPBOX_TOKEN")),
+        MAPBOX_TOKEN ? sampleElevationProfile(r.anchor, MAPBOX_TOKEN) : Promise.reject(new Error("no token")),
+        MAPBOX_TOKEN ? fetchHeightField(r.anchor, MAPBOX_TOKEN) : Promise.reject(new Error("no NEXT_PUBLIC_MAPBOX_TOKEN")),
       ]);
       const city = cityRes.status === "fulfilled" ? cityRes.value : null;
       const elev = elevRes.status === "fulfilled" ? elevRes.value : null;
+      const hf = hfRes.status === "fulfilled" ? hfRes.value : null;
 
       if (city) pushLog(`  OSM → ${city.count.buildings} buildings · ${city.count.roads} roads (${city.radiusM} m radius)`);
       else pushLog(`  ✕ buildings: ${cityRes.reason?.message || "failed"}`);
-      if (elev) pushLog(`  elevation ${Math.round(elev.min)}–${Math.round(elev.max)} m (mean ${Math.round(elev.mean)}) · tile ${elev.z}/${elev.x}/${elev.y}`);
-      else pushLog(`  · elevation: ${elevRes.reason?.message || "skipped"}`);
+      if (hf) pushLog(`  terrain field → ${hf.res}² samples · relief ${Math.round(hf.max - hf.min)} m · ${Math.round(hf.sizeMeters)} m grid (z${hf.z})`);
+      else pushLog(`  ✕ terrain: ${hfRes.reason?.message || "failed"}`);
+      if (elev) pushLog(`  elevation ${Math.round(elev.min)}–${Math.round(elev.max)} m (mean ${Math.round(elev.mean)})`);
 
-      setScene({ elev, city });
-      pushLog(`✓ scene resolved. wireframe = partition-edge trace · terrain/atmosphere → M6`);
-      setOutTab(city ? "scene" : elev ? "charts" : "console");
+      setScene({ elev, city, hf });
+      pushLog(`✓ scene resolved. walker stands on real terrain · other fields → next layers`);
+      setOutTab(city || hf ? "scene" : elev ? "charts" : "console");
     } catch (e) {
       setOutTab("console");
       pushLog(`  ✕ error: ${e.message}`);
     } finally {
       setRunning(false);
     }
-  }, [files, pushLog]);
+  }, [files, entryOf, pushLog]);
 
   const toggleFolder = useCallback((key) => {
     setExpanded((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
@@ -663,7 +778,7 @@ export default function Sandbox() {
           <span className="h-3 w-3 rounded-full" style={{ background: "#27c93f" }} />
         </div>
         <span className="text-xs" style={{ color: "#cccccc" }}>dendra — buhera-west</span>
-        <a href="/" className="text-xs" style={{ color: theme.tabFg }}>← home</a>
+        <Link href="/" className="text-xs" style={{ color: theme.tabFg }}>← home</Link>
       </div>
 
       <div className="flex min-h-0 flex-1">

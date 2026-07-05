@@ -43,6 +43,17 @@ export function lex(src: string): LexResult {
 
     if (PUNCT[c]) { advance(); emit(PUNCT[c], c, pos, l, cc); continue; }
 
+    // string literal — "…" (import paths). No escapes in v0.
+    if (c === '"') {
+      advance(); // opening quote
+      let text = "";
+      while (i < src.length && peek() !== '"' && peek() !== "\n") text += advance();
+      if (peek() === '"') advance();
+      else diagnostics.push({ severity: "error", message: "unterminated string", pos, line: l, col: cc });
+      emit("string", text, pos, l, cc, { value: undefined });
+      continue;
+    }
+
     // number / length — optional leading '-' only when a digit follows
     if (isDigit(c) || (c === "-" && isDigit(peek(1)))) {
       let text = "";
